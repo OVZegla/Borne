@@ -466,8 +466,9 @@ body {
 .scene__cadre {
   display: grid;
   place-items: center;
-  width: 100%;
-  min-height: min(58vh, 460px);
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
   padding: clamp(0.75rem, 2vw, 1.25rem);
   background: var(--surface);
   border: 1px solid var(--bordure);
@@ -540,6 +541,287 @@ body {
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--bleu-700);
+}
+
+/* --- borne : choix du tirage ----------------------------------------------- */
+
+.atelier {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .atelier {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  }
+}
+
+/* Le rendu reprend le rapport hauteur/largeur du format et la decoupe choisie,
+   pour que le client voie le tirage tel qu'il sera. */
+/* La hauteur pilote le rendu : la largeur decoule du format choisi, sinon
+   `max-height` entrerait en conflit avec `aspect-ratio` et fausserait la forme. */
+.rendu {
+  display: grid;
+  place-items: center;
+  height: min(58vh, 560px);
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  transition: aspect-ratio var(--transition), clip-path var(--transition);
+}
+
+.rendu img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* le tirage sera recadre au format demande */
+  display: block;
+}
+
+/* `closest-side` inscrit le cercle dans le petit cote, comme le tirage reel. */
+.rendu[data-forme='cercle'] {
+  clip-path: circle(closest-side at 50% 50%);
+}
+
+.rendu[data-forme='diamant'] {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.rendu[data-forme='triangle'] {
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.rendu--cadre {
+  border: 10px solid var(--bleu-900);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.options {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.choix {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choix__titre {
+  padding: 0;
+  margin-bottom: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.choix__unite {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.choix__liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.choix--verrouille .choix__liste {
+  opacity: 0.55;
+}
+
+.choix__note {
+  margin: 0.55rem 0 0;
+  font-size: 0.83rem;
+  color: var(--gris);
+}
+
+.pastille-choix {
+  padding: 0.5rem 0.9rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--encre);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition),
+    color var(--transition);
+}
+
+.pastille-choix:hover:not(:disabled) {
+  border-color: var(--bleu-500);
+  background: var(--bleu-050);
+}
+
+.pastille-choix[data-actif='true'] {
+  background: var(--bleu-800);
+  border-color: var(--bleu-800);
+  color: #fff;
+}
+
+.pastille-choix:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.prix {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--rayon);
+  background: var(--bleu-050);
+  border: 1px solid var(--bleu-100);
+}
+
+.prix__legende {
+  font-size: 0.85rem;
+  color: var(--gris);
+  font-weight: 600;
+}
+
+.prix__montant {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--bleu-800);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- recapitulatif de commande --------------------------------------------- */
+
+.recap {
+  margin-top: 1.5rem;
+}
+
+.recap:empty {
+  margin-top: 0;
+}
+
+.recap__liste {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recap__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 1rem;
+  align-items: baseline;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--surface);
+}
+
+.recap__nom {
+  font-weight: 600;
+  font-size: 0.93rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recap__detail {
+  grid-column: 1;
+  font-size: 0.83rem;
+  color: var(--gris);
+}
+
+.recap__prix {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-weight: 700;
+  color: var(--bleu-800);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.recap__reste {
+  margin: 0.8rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--gris);
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.9rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--bordure);
+  font-size: 0.95rem;
+  color: var(--gris);
+}
+
+.total strong {
+  font-size: 1.35rem;
+  color: var(--bleu-800);
+  font-variant-numeric: tabular-nums;
+}
+
+.total--grand strong {
+  font-size: 1.8rem;
+}
+
+/* --- etat de paiement ------------------------------------------------------ */
+
+.etat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.etat__point {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.etat--attente {
+  background: #fff4e5;
+  color: #9a5b00;
+}
+
+.etat--paye {
+  background: #e6f4ec;
+  color: var(--succes);
+}
+
+.qr--regle {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.vignette__tirage {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--bleu-700);
+}
+
+.bande__vue--incomplete {
+  border-style: dashed;
+  border-color: #e0a300;
 }
 
 /* --- telephone : envoi ----------------------------------------------------- */

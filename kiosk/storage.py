@@ -22,11 +22,26 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import config, imagemeta
+from . import catalogue, config, imagemeta
 
 
 class StorageError(Exception):
     """Depot invalide ou refuse."""
+
+
+@dataclass
+class Article:
+    """Le tirage commande pour une photo : matiere, format, forme et prix."""
+
+    matiere: str
+    format: str
+    forme: str
+    prix: float
+
+    def public(self) -> dict:
+        data = asdict(self)
+        data["libelle"] = catalogue.libelle(self.matiere, self.format, self.forme)
+        return data
 
 
 @dataclass
@@ -39,10 +54,12 @@ class Image:
     created_at: float
     width: int | None = None
     height: int | None = None
+    article: Article | None = None
 
     def public(self) -> dict:
         data = asdict(self)
         data.pop("filename")
+        data["article"] = self.article.public() if self.article else None
         return data
 
 
@@ -50,36 +67,76 @@ class Image:
 class Ticket:
     code: str
     token: str
+    payment_token: str
     created_at: float
     expires_at: float
     validated_at: float | None = None
+    paid_at: float | None = None
     images: list[Image] = field(default_factory=list)
 
     @property
     def validated(self) -> bool:
         return self.validated_at is not None
 
-    def public(self) -> dict:
-        """Vue destinee au poste de retrait : le code y figure."""
+    @property
+    def paid(self) -> bool:
+        return self.paid_at is not None
+
+    @property
+    def total(self) -> float:
+        return round(sum(i.article.prix for i in self.images if i.article), 2)
+
+    @property
+    def configured(self) -> bool:
+        """Toutes les photos ont-elles un tirage choisi ?"""
+        return bool(self.images) and all(image.article for image in self.images)
+
+    def _commun(self) -> dict:
         return {
-            "code": self.code,
             "created_at": self.created_at,
+            "validee": self.validated,
+            "paiement": "paye" if self.paid else "en_attente",
+            "paid_at": self.paid_at,
+            "total": self.total,
+            "devise": catalogue.DEVISE,
+            "images": [image.public() for image in self.images],
+        }
+
+    def public(self) -> dict:
+        """Vue destinee au poste de reception : le code y figure."""
+        return {
+            **self._commun(),
+            "code": self.code,
             "expires_at": self.expires_at,
             "validated_at": self.validated_at,
-            "images": [image.public() for image in self.images],
         }
 
     def session(self) -> dict:
         """Vue destinee a la borne et au telephone : pas de code avant validation."""
-        data = {
-            "token": self.token,
-            "created_at": self.created_at,
-            "validee": self.validated,
-            "images": [image.public() for image in self.images],
-        }
+        data = {**self._commun(), "token": self.token, "complete": self.configured}
         if self.validated:
             data["code"] = self.code
         return data
+
+    def paiement(self) -> dict:
+        """Vue de la page de reglement : le montant, jamais le code de retrait."""
+        return {
+            "jeton": self.payment_token,
+            "paiement": "paye" if self.paid else "en_attente",
+            "paid_at": self.paid_at,
+            "total": self.total,
+            "devise": catalogue.DEVISE,
+            "articles": [
+                {
+                    "nom": image.name,
+                    "image_id": image.id,
+                    "mime": image.mime,
+                    **image.article.public(),
+                }
+                for image in self.images
+                if image.article
+            ],
+        }
 
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._ \-()\[\]]+")
@@ -99,6 +156,7 @@ class Store:
         self._lock = threading.RLock()
         self._tickets: dict[str, Ticket] = {}
         self._by_token: dict[str, Ticket] = {}
+        self._by_payment: dict[str, Ticket] = {}
         config.FILES_DIR.mkdir(parents=True, exist_ok=True)
         self._load()
 
@@ -113,30 +171,43 @@ class Store:
             return
         for entry in raw.get("tickets", []):
             try:
-                images = [Image(**img) for img in entry.get("images", [])]
+                images = []
+                for brut in entry.get("images", []):
+                    article = brut.pop("article", None)
+                    brut.pop("libelle", None)
+                    image = Image(**brut)
+                    if article:
+                        article.pop("libelle", None)
+                        image.article = Article(**article)
+                    images.append(image)
                 ticket = Ticket(
                     code=entry["code"],
                     token=entry["token"],
+                    payment_token=entry["payment_token"],
                     created_at=entry["created_at"],
                     expires_at=entry["expires_at"],
                     validated_at=entry.get("validated_at"),
+                    paid_at=entry.get("paid_at"),
                     images=images,
                 )
             except (KeyError, TypeError):
                 continue
             self._tickets[ticket.code] = ticket
             self._by_token[ticket.token] = ticket
+            self._by_payment[ticket.payment_token] = ticket
 
     def _save(self) -> None:
         payload = {
-            "version": 2,
+            "version": 3,
             "tickets": [
                 {
                     "code": t.code,
                     "token": t.token,
+                    "payment_token": t.payment_token,
                     "created_at": t.created_at,
                     "expires_at": t.expires_at,
                     "validated_at": t.validated_at,
+                    "paid_at": t.paid_at,
                     "images": [asdict(i) for i in t.images],
                 }
                 for t in self._tickets.values()
@@ -160,6 +231,12 @@ class Store:
         with self._lock:
             self.purge()
             return self._by_token.get(token)
+
+    def get_by_payment(self, jeton: str) -> Ticket | None:
+        """Commande a regler, identifiee par le jeton du QR code de paiement."""
+        with self._lock:
+            self.purge()
+            return self._by_payment.get(jeton)
 
     def recent(self, limit: int = 30) -> list[Ticket]:
         """Depots proposes au retrait : uniquement ceux valides sur la borne."""
@@ -191,12 +268,49 @@ class Store:
             ticket = Ticket(
                 code=self._new_code(),
                 token=secrets.token_urlsafe(9),
+                payment_token=secrets.token_urlsafe(9),
                 created_at=now,
                 expires_at=now + config.RETENTION_HOURS * 3600,
             )
             self._tickets[ticket.code] = ticket
             self._by_token[ticket.token] = ticket
+            self._by_payment[ticket.payment_token] = ticket
             self._save()
+            return ticket
+
+    def set_article(self, token: str, image_id: str, matiere: str, format_: str, forme: str) -> Image:
+        """Choisit le tirage d'une photo (matiere, format, forme) et son prix."""
+        with self._lock:
+            ticket = self.get_by_token(token)
+            if ticket is None:
+                raise StorageError("Session inconnue ou expiree")
+            if ticket.validated:
+                raise StorageError("Ce depot est deja valide, la commande n'est plus modifiable")
+
+            image = next((i for i in ticket.images if i.id == image_id), None)
+            if image is None:
+                raise StorageError("Photo introuvable dans cette session")
+
+            try:
+                montant = catalogue.prix(matiere, format_, forme)
+            except catalogue.CatalogueError as exc:
+                raise StorageError(str(exc)) from exc
+
+            image.article = Article(matiere=matiere, format=format_, forme=forme, prix=montant)
+            self._save()
+            return image
+
+    def mark_paid(self, jeton: str) -> Ticket:
+        """Enregistre le reglement d'une commande."""
+        with self._lock:
+            ticket = self.get_by_payment(jeton)
+            if ticket is None:
+                raise StorageError("Commande inconnue ou expiree")
+            if not ticket.validated:
+                raise StorageError("Cette commande n'est pas encore validee sur la borne")
+            if not ticket.paid:
+                ticket.paid_at = time.time()
+                self._save()
             return ticket
 
     def validate(self, token: str) -> Ticket:
@@ -207,6 +321,8 @@ class Store:
                 raise StorageError("Session inconnue ou expiree")
             if not ticket.images:
                 raise StorageError("Aucune photo recue pour le moment")
+            if not ticket.configured:
+                raise StorageError("Chaque photo doit avoir un tirage choisi avant validation")
             if not ticket.validated:
                 ticket.validated_at = time.time()
                 # Le delai de retrait court a partir de la validation.
@@ -276,6 +392,7 @@ class Store:
             if ticket is None:
                 return False
             self._by_token.pop(ticket.token, None)
+            self._by_payment.pop(ticket.payment_token, None)
             for image in ticket.images:
                 self._unlink(image)
             self._save()
@@ -295,6 +412,7 @@ class Store:
                     self._unlink(image)
             self._tickets.clear()
             self._by_token.clear()
+            self._by_payment.clear()
             self._save()
             return count
 
@@ -318,6 +436,7 @@ class Store:
             for code in expired:
                 ticket = self._tickets.pop(code)
                 self._by_token.pop(ticket.token, None)
+                self._by_payment.pop(ticket.payment_token, None)
                 for image in ticket.images:
                     self._unlink(image)
             if expired:

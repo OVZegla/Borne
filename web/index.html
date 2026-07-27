@@ -20,7 +20,7 @@
       </a>
       <nav class="navigation">
         <a href="/">Borne</a>
-        <a href="/recuperer">Récupérer</a>
+        <a href="/recuperer">Réception</a>
       </nav>
     </header>
 
@@ -74,14 +74,45 @@
           </p>
         </div>
 
-        <div class="scene">
-          <div class="scene__cadre">
-            <img id="photo-geante" alt="Dernière photo reçue">
+        <div class="atelier">
+          <div class="scene">
+            <div class="scene__cadre">
+              <div class="rendu" id="rendu">
+                <img id="photo-geante" alt="Dernière photo reçue">
+              </div>
+            </div>
+            <p class="scene__legende" id="legende-photo"></p>
           </div>
-          <p class="scene__legende" id="legende-photo"></p>
+
+          <div class="options">
+            <fieldset class="choix">
+              <legend class="choix__titre">Matière</legend>
+              <div class="choix__liste" id="liste-matieres"></div>
+            </fieldset>
+
+            <fieldset class="choix">
+              <legend class="choix__titre">Dimensions <span class="choix__unite">en cm</span></legend>
+              <div class="choix__liste" id="liste-formats"></div>
+            </fieldset>
+
+            <fieldset class="choix" id="bloc-formes">
+              <legend class="choix__titre">Forme</legend>
+              <div class="choix__liste" id="liste-formes"></div>
+              <p class="choix__note cache" id="note-forme">
+                La toile est tendue sur châssis : elle garde son format d'origine.
+              </p>
+            </fieldset>
+
+            <div class="prix" id="bloc-prix">
+              <span class="prix__legende">Prix de ce tirage</span>
+              <span class="prix__montant" id="prix-article">—</span>
+            </div>
+          </div>
         </div>
 
         <ul class="bande" id="bande-photos"></ul>
+
+        <div class="recap" id="recap-commande"></div>
 
         <div class="actions" style="margin-top: 1.75rem">
           <button class="bouton bouton--principal bouton--large" id="btn-valider" type="button">
@@ -111,6 +142,10 @@
               <span class="code__legende">Code à 4 chiffres</span>
               <p class="code" id="affichage-code">····</p>
               <p class="ligne__detail" id="resume-depot"></p>
+              <p class="total total--grand">
+                <span>Total à régler</span>
+                <strong id="total-commande">—</strong>
+              </p>
               <div class="actions" style="justify-content: flex-start; margin-top: 1.25rem">
                 <button class="bouton bouton--principal" id="btn-recommencer" type="button">
                   Nouveau dépôt
@@ -121,8 +156,14 @@
               </div>
             </div>
             <figure class="qr" style="margin: 0">
-              <img id="qr-retrait" alt="QR code vers le dépôt">
-              <figcaption>Scannez pour ouvrir le dépôt sur un autre appareil</figcaption>
+              <img id="qr-paiement" alt="QR code de paiement">
+              <figcaption>
+                <strong>Scannez pour régler votre commande</strong><br>
+                Le paiement apparaîtra en direct à la réception.
+              </figcaption>
+              <span class="etat etat--attente" id="etat-paiement">
+                <span class="etat__point"></span> Paiement en attente
+              </span>
             </figure>
           </div>
 

@@ -2,24 +2,27 @@
    puis révèle le code de retrait une fois l'opérateur satisfait. */
 
 import {
-  $, api, config, ecouterEvenements, element, estAffichable, extension,
-  marquerPageActive, poids,
+  $, api, catalogue, config, ecouterEvenements, element, estAffichable, extension,
+  marquerPageActive, poids, prixLisible,
 } from './commun.js';
 
 const erreur = $('#message-erreur');
 
 let reglages = null;
+let cat = null; // catalogue : matières, formats, formes, grille de prix
 let session = null; // { token, images: [] }
 let flux = null;
 let selection = null; // identifiant de la photo affichée en grand
+let brouillon = { matiere: null, format: null, forme: 'initial' };
 
 marquerPageActive();
 demarrer();
 
 async function demarrer() {
   try {
-    reglages = await config();
+    [reglages, cat] = await Promise.all([config(), catalogue()]);
     $('#retention').textContent = reglages.retention_heures;
+    construireOptions();
   } catch (echec) {
     return afficherErreur('Impossible de contacter la borne. Le serveur tourne-t-il toujours ?');
   }
@@ -47,6 +50,7 @@ function brancherFlux() {
         selection = donnees.image.id;
         afficherApercu();
       },
+      paiement: (donnees) => marquerPaye(donnees?.paiement === 'paye'),
       suppression: rafraichirSession,
       purge: rafraichirSession,
     },
@@ -70,7 +74,156 @@ async function rafraichirSession() {
   }
 }
 
-/* --- étape 2 : aperçu ------------------------------------------------------ */
+/* --- étape 2 : choix du tirage --------------------------------------------- */
+
+function construireOptions() {
+  $('#liste-matieres').replaceChildren(
+    ...cat.matieres.map((m) =>
+      pastilleChoix(m.nom, () => {
+        brouillon.matiere = m.cle;
+        if (!m.formes) brouillon.forme = 'initial';
+        appliquerChoix();
+      }, () => brouillon.matiere === m.cle),
+    ),
+  );
+
+  $('#liste-formats').replaceChildren(
+    ...cat.formats.map((f) =>
+      pastilleChoix(f.nom, () => {
+        brouillon.format = f.cle;
+        appliquerChoix();
+      }, () => brouillon.format === f.cle),
+    ),
+  );
+
+  $('#liste-formes').replaceChildren(
+    ...cat.formes.map((f) =>
+      pastilleChoix(f.nom, () => {
+        brouillon.forme = f.cle;
+        appliquerChoix();
+      }, () => brouillon.forme === f.cle, `forme-${f.cle}`),
+    ),
+  );
+}
+
+function pastilleChoix(libelle, auClic, estActif, classeSup = '') {
+  return element(
+    'button',
+    {
+      class: `pastille-choix ${classeSup}`.trim(),
+      type: 'button',
+      dataset: { actif: String(estActif()) },
+      onclick: auClic,
+    },
+    libelle,
+  );
+}
+
+/** Répercute le brouillon sur les pastilles, l'aperçu, le prix et le serveur. */
+function appliquerChoix(enregistrer = true) {
+  const matiere = cat.matieres.find((m) => m.cle === brouillon.matiere);
+  const formesPermises = !matiere || matiere.formes;
+
+  // Une matière sans découpe (la toile) fige la forme sur « format initial ».
+  $('#bloc-formes').classList.toggle('choix--verrouille', !formesPermises);
+  $('#note-forme').classList.toggle('cache', formesPermises);
+  for (const bouton of $('#liste-formes').children) {
+    const estInitial = bouton.classList.contains('forme-initial');
+    bouton.disabled = !formesPermises && !estInitial;
+  }
+
+  rafraichirPastilles();
+  majApercu();
+
+  const complet = brouillon.matiere && brouillon.format && brouillon.forme;
+  const montant = complet
+    ? cat.prix[`${brouillon.matiere}|${brouillon.format}|${brouillon.forme}`]
+    : null;
+  $('#prix-article').textContent =
+    montant === null || montant === undefined ? '—' : prixLisible(montant, cat.devise);
+
+  if (complet && enregistrer) enregistrerArticle();
+  majRecapitulatif();
+}
+
+function rafraichirPastilles() {
+  const groupes = [
+    ['#liste-matieres', cat.matieres, 'matiere'],
+    ['#liste-formats', cat.formats, 'format'],
+    ['#liste-formes', cat.formes, 'forme'],
+  ];
+  for (const [selecteur, entrees, champ] of groupes) {
+    [...$(selecteur).children].forEach((bouton, index) => {
+      bouton.dataset.actif = String(entrees[index].cle === brouillon[champ]);
+    });
+  }
+}
+
+/** L'aperçu montre le vrai rapport hauteur/largeur et la vraie découpe. */
+function majApercu() {
+  const rendu = $('#rendu');
+  const format = cat.formats.find((f) => f.cle === brouillon.format);
+  rendu.style.aspectRatio = format ? `${format.largeur} / ${format.hauteur}` : '';
+  rendu.dataset.forme = brouillon.forme || 'initial';
+  rendu.classList.toggle('rendu--cadre', brouillon.matiere === 'cadre');
+}
+
+async function enregistrerArticle() {
+  const photo = session.images.find((image) => image.id === selection);
+  if (!photo) return;
+  try {
+    const maj = await api(`/api/sessions/${session.token}/images/${photo.id}/article`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(brouillon),
+    });
+    Object.assign(photo, maj);
+    majRecapitulatif();
+    $('#bande-photos').replaceChildren(...session.images.map(vignetteBande));
+  } catch (echec) {
+    afficherErreur(`Choix impossible : ${echec.message}`);
+  }
+}
+
+function majRecapitulatif() {
+  const configurees = session.images.filter((image) => image.article);
+  const total = configurees.reduce((somme, image) => somme + image.article.prix, 0);
+  const manquantes = session.images.length - configurees.length;
+
+  const lignes = configurees.map((image) =>
+    element('li', { class: 'recap__ligne' }, [
+      element('span', { class: 'recap__nom' }, image.name),
+      element('span', { class: 'recap__detail' }, image.article.libelle),
+      element('span', { class: 'recap__prix' }, prixLisible(image.article.prix, cat.devise)),
+    ]),
+  );
+
+  const contenu = [];
+  if (lignes.length) {
+    contenu.push(element('ul', { class: 'recap__liste' }, lignes));
+    contenu.push(
+      element('p', { class: 'total' }, [
+        element('span', {}, 'Total'),
+        element('strong', {}, prixLisible(total, cat.devise)),
+      ]),
+    );
+  }
+  if (manquantes > 0) {
+    contenu.push(
+      element(
+        'p',
+        { class: 'recap__reste' },
+        manquantes > 1
+          ? `${manquantes} photos n'ont pas encore de tirage choisi.`
+          : "Il reste 1 photo sans tirage choisi.",
+      ),
+    );
+  }
+  $('#recap-commande').replaceChildren(...contenu);
+
+  const pret = session.images.length > 0 && manquantes === 0;
+  $('#btn-valider').disabled = !pret;
+}
 
 function afficherApercu() {
   const total = session.images.length;
@@ -80,9 +233,7 @@ function afficherApercu() {
 
   $('#titre-apercu').textContent = total > 1 ? `${total} photos reçues` : 'Photo bien reçue !';
   $('#sous-titre-apercu').textContent =
-    total > 1
-      ? 'Vérifiez vos photos, puis validez pour obtenir votre code de retrait.'
-      : 'Vérifiez la photo, puis validez pour obtenir votre code de retrait.';
+    'Choisissez la matière, les dimensions et la forme de chaque tirage.';
 
   const geante = $('#photo-geante');
   if (estAffichable(photo.mime)) {
@@ -101,6 +252,12 @@ function afficherApercu() {
     .filter(Boolean)
     .join(' · ');
 
+  // On reprend le tirage déjà choisi pour cette photo, sinon on repart à vide.
+  brouillon = photo.article
+    ? { matiere: photo.article.matiere, format: photo.article.format, forme: photo.article.forme }
+    : { matiere: null, format: null, forme: 'initial' };
+  appliquerChoix(false);
+
   $('#bande-photos').replaceChildren(...session.images.map(vignetteBande));
   $('#bande-photos').classList.toggle('cache', total < 2);
   montrerEtape('etape-apercu');
@@ -111,15 +268,23 @@ function vignetteBande(image) {
     ? element('img', { src: `/media/${image.id}`, alt: image.name, loading: 'lazy' })
     : element('span', { class: 'bande__type' }, extension(image.mime));
 
+  const classes = [
+    'bande__vue',
+    image.id === selection ? 'bande__vue--active' : '',
+    image.article ? 'bande__vue--prete' : 'bande__vue--incomplete',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return element(
     'li',
     {},
     element(
       'button',
       {
-        class: `bande__vue${image.id === selection ? ' bande__vue--active' : ''}`,
+        class: classes,
         type: 'button',
-        'aria-label': `Afficher ${image.name}`,
+        'aria-label': `${image.article ? 'Modifier' : 'Choisir'} le tirage de ${image.name}`,
         onclick: () => {
           selection = image.id;
           afficherApercu();
@@ -164,20 +329,30 @@ $('#btn-recommencer').addEventListener('click', () => window.location.reload());
 /* --- étape 3 : le code ----------------------------------------------------- */
 
 function afficherCode(depot) {
-  if (flux) flux.close();
-
-  const base = reglages?.url_reseau || window.location.origin;
   $('#affichage-code').textContent = depot.code;
-  $('#qr-retrait').src = `/qr.svg?d=${encodeURIComponent(`${base}/r?c=${depot.code}`)}`;
+  $('#qr-paiement').src = `/qr.svg?d=${encodeURIComponent(depot.url_paiement)}`;
   $('#lien-recuperer').href = `/recuperer?code=${depot.code}`;
+  $('#total-commande').textContent = prixLisible(depot.total, depot.devise);
 
   const nombre = depot.images.length;
   $('#resume-depot').textContent =
-    `${nombre} ${nombre > 1 ? 'photos disponibles' : 'photo disponible'} · ` +
-    `pendant ${reglages ? reglages.retention_heures : 24} h`;
+    `${nombre} ${nombre > 1 ? 'tirages commandés' : 'tirage commandé'} · ` +
+    `disponibles ${reglages ? reglages.retention_heures : 24} h`;
 
   $('#galerie-finale').replaceChildren(...depot.images.map(carteImage));
+  marquerPaye(depot.paiement === 'paye');
   montrerEtape('etape-code');
+  // Le flux de la session reste ouvert : c'est lui qui apportera le paiement.
+}
+
+function marquerPaye(paye) {
+  const etat = $('#etat-paiement');
+  etat.className = `etat ${paye ? 'etat--paye' : 'etat--attente'}`;
+  etat.replaceChildren(
+    element('span', { class: 'etat__point' }),
+    document.createTextNode(paye ? ' Paiement reçu' : ' Paiement en attente'),
+  );
+  $('#qr-paiement').classList.toggle('qr--regle', paye);
 }
 
 function carteImage(image) {
@@ -194,9 +369,13 @@ function carteImage(image) {
     apercu,
     element('div', { class: 'vignette__corps' }, [
       element('span', { class: 'vignette__nom', title: image.name }, image.name),
-      element('span', { class: 'vignette__meta' }, [
-        poids(image.size) + (image.width ? ` · ${image.width}×${image.height}` : ''),
-      ]),
+      element(
+        'span',
+        { class: 'vignette__meta' },
+        image.article
+          ? `${image.article.libelle} · ${prixLisible(image.article.prix, cat.devise)}`
+          : poids(image.size),
+      ),
     ]),
   ]);
 }

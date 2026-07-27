@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Régler ma commande</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="enveloppe enveloppe--etroite">
+    <header class="entete entete--simple">
+      <span class="marque">
+        <img class="marque__logo" src="/assets/logo.svg" alt="">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous">Règlement de la commande</span>
+        </span>
+      </span>
+    </header>
+
+    <main>
+      <section id="etape-commande" class="cache">
+        <div class="centre">
+          <h1 class="titre">Votre commande</h1>
+        </div>
+
+        <div class="carte">
+          <ul class="recap__liste" id="liste-articles"></ul>
+          <p class="total total--grand">
+            <span>Total</span>
+            <strong id="total">—</strong>
+          </p>
+        </div>
+
+        <div class="actions actions--empilees" style="margin-top: 1.5rem">
+          <button class="bouton bouton--principal bouton--large" id="btn-payer" type="button">
+            Régler ma commande
+          </button>
+        </div>
+
+        <p class="message message--info" style="margin-top: 1.25rem">
+          <strong>Encaissement à raccorder.</strong> Aucun prestataire de paiement
+          n'est branché sur cette borne : ce bouton marque la commande comme réglée
+          et prévient la réception. À remplacer par votre solution d'encaissement.
+        </p>
+      </section>
+
+      <section id="etape-payee" class="cache centre">
+        <div class="coche" aria-hidden="true">
+          <svg viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="4"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="26" cy="26" r="23"></circle>
+            <path d="M15 27l8 8 15-16"></path>
+          </svg>
+        </div>
+        <h1 class="titre">Commande réglée</h1>
+        <p class="chapeau" id="resume-paye"></p>
+        <p class="message message--info">
+          La réception voit votre commande comme payée. Présentez votre code à
+          4 chiffres pour retirer vos tirages.
+        </p>
+      </section>
+
+      <p class="message message--erreur cache" id="message-erreur"></p>
+    </main>
+
+    <footer class="pied">Symp's Kiosk</footer>
+  </div>
+
+  <script type="module" src="/assets/paiement.js"></script>
+</body>
+</html>

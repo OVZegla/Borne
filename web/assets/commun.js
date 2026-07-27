@@ -92,3 +92,12 @@ export async function config() {
   if (!config._promesse) config._promesse = api('/api/config');
   return config._promesse;
 }
+
+export async function catalogue() {
+  if (!catalogue._promesse) catalogue._promesse = api('/api/catalogue');
+  return catalogue._promesse;
+}
+
+export function prixLisible(montant, devise = '€') {
+  return `${Number(montant).toFixed(2).replace('.', ',')} ${devise}`;
+}

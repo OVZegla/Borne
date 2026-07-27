@@ -2,7 +2,7 @@
 
 import {
   $, $$, api, config, ecouterEvenements, element, estAffichable, extension,
-  ilYA, marquerPageActive, poids,
+  ilYA, marquerPageActive, poids, prixLisible,
 } from './commun.js';
 
 const cases = $$('#formulaire-code input');
@@ -99,12 +99,25 @@ function ligneDepot(depot) {
     element('button', { class: 'depot', type: 'button', onclick: () => afficherDepot(depot) }, [
       element('span', { class: 'depot__code' }, depot.code),
       element('span', { class: 'depot__infos' }, [
-        element('span', { class: 'depot__titre' }, `${nombre} ${nombre > 1 ? 'images' : 'image'}`),
-        element('span', { class: 'depot__meta' }, `déposé ${ilYA(depot.created_at)}`),
+        element(
+          'span',
+          { class: 'depot__titre' },
+          `${nombre} ${nombre > 1 ? 'tirages' : 'tirage'} · ${prixLisible(depot.total, depot.devise)}`,
+        ),
+        element('span', { class: 'depot__meta' }, `validé ${ilYA(depot.validated_at || depot.created_at)}`),
       ]),
+      badgePaiement(depot),
       element('span', { class: 'depot__apercus' }, apercus),
     ]),
   );
+}
+
+function badgePaiement(depot) {
+  const paye = depot.paiement === 'paye';
+  return element('span', { class: `etat ${paye ? 'etat--paye' : 'etat--attente'}` }, [
+    element('span', { class: 'etat__point' }),
+    paye ? ' Payé' : ' En attente',
+  ]);
 }
 
 /* --- contenu d'un dépôt ---------------------------------------------------- */
@@ -115,7 +128,9 @@ function afficherDepot(depot, options = {}) {
   $('#titre-code').textContent = depot.code;
   const nombre = depot.images.length;
   $('#resume-contenu').textContent =
-    `${nombre} ${nombre > 1 ? 'fichiers' : 'fichier'} · déposé ${ilYA(depot.created_at)}`;
+    `${nombre} ${nombre > 1 ? 'tirages' : 'tirage'} · ` +
+    `${prixLisible(depot.total, depot.devise)} · validé ${ilYA(depot.validated_at || depot.created_at)}`;
+  $('#etat-depot').replaceChildren(badgePaiement(depot));
   $('#btn-zip').href = `/api/depots/${depot.code}/zip`;
   $('#btn-zip').classList.toggle('cache', nombre === 0);
 
@@ -164,9 +179,16 @@ function carteImage(image) {
     apercu,
     element('div', { class: 'vignette__corps' }, [
       element('span', { class: 'vignette__nom', title: image.name }, image.name),
-      element('span', { class: 'vignette__meta' }, [
-        poids(image.size) + (image.width ? ` · ${image.width}×${image.height}` : ''),
-      ]),
+      image.article
+        ? element('span', { class: 'vignette__tirage' }, image.article.libelle)
+        : null,
+      element(
+        'span',
+        { class: 'vignette__meta' },
+        image.article
+          ? prixLisible(image.article.prix, '€')
+          : poids(image.size) + (image.width ? ` · ${image.width}×${image.height}` : ''),
+      ),
     ]),
     element('div', { class: 'vignette__actions' }, actions),
   ]);
@@ -202,6 +224,7 @@ $('#btn-supprimer').addEventListener('click', async () => {
 ecouterEvenements({
   image: rafraichirListe,
   depot: rafraichirListe,
+  paiement: rafraichirListe,
   suppression: rafraichirListe,
   purge: rafraichirListe,
 });

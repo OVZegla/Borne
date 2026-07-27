@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import config, qr
+from . import catalogue, config, qr
 from .storage import Store, StorageError
 
 STORE = Store()
@@ -179,6 +179,7 @@ class Handler(BaseHTTPRequestHandler):
         pages = {
             "/": "index.html",
             "/envoyer": "envoyer.html",
+            "/paiement": "paiement.html",
             "/recuperer": "recuperer.html",
             "/impression": "impression.html",
         }
@@ -191,6 +192,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/e":  # lien court encode dans le QR code de la borne
                 token = (query.get("s") or [""])[0]
                 return self._redirect(f"/envoyer?s={quote(token)}")
+            if path == "/p":  # lien court du QR code de paiement
+                jeton = (query.get("j") or [""])[0]
+                return self._redirect(f"/paiement?j={quote(jeton)}")
             if path == "/r":  # lien court vers un depot deja valide
                 code = (query.get("c") or [""])[0]
                 return self._redirect(f"/recuperer?code={quote(code)}")
@@ -198,6 +202,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._qr(query)
             if path == "/api/config":
                 return self._config()
+            if path == "/api/catalogue":
+                return self._json(catalogue.public())
+            if path.startswith("/api/paiement/"):
+                return self._get_payment(path[len("/api/paiement/"):])
             if path == "/api/depots":
                 return self._json([t.public() for t in STORE.recent()])
             if path == "/api/evenements":
@@ -218,6 +226,13 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/sessions/") and path.endswith("/valider"):
                 token = path[len("/api/sessions/"):-len("/valider")]
                 return self._validate(token)
+            if path.startswith("/api/sessions/") and "/images/" in path:
+                reste = path[len("/api/sessions/"):]
+                token, _, fin = reste.partition("/images/")
+                if fin.endswith("/article"):
+                    return self._set_article(token, fin[: -len("/article")])
+            if path.startswith("/api/paiement/") and path.endswith("/regler"):
+                return self._pay(path[len("/api/paiement/"):-len("/regler")])
 
         elif method == "DELETE":
             if path == "/api/depots":
@@ -272,12 +287,62 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.NOT_FOUND, "Session inconnue ou expiree")
         self._json(ticket.session())
 
+    def _set_article(self, token: str, image_id: str) -> None:
+        """Choix du tirage pour une photo : matiere, format, forme."""
+        choix = self._read_json()
+        if choix is None:
+            return self._error(HTTPStatus.BAD_REQUEST, "Corps JSON attendu")
+        image = STORE.set_article(
+            token,
+            image_id,
+            str(choix.get("matiere", "")),
+            str(choix.get("format", "")),
+            str(choix.get("forme", "initial")),
+        )
+        BROKER.publish("article", {"image": image.public()}, canal=token)
+        self._json(image.public())
+
     def _validate(self, token: str) -> None:
         """L'operateur valide sur la borne : le code de retrait est revele."""
         ticket = STORE.validate(token)
-        BROKER.publish("depot", ticket.public())  # le poste de retrait rafraichit sa liste
-        BROKER.publish("validation", ticket.session(), canal=token)
-        self._json(ticket.session())
+        port = self.server.server_address[1]
+        payload = ticket.session()
+        payload["url_paiement"] = f"{preferred_url(port)}/p?j={ticket.payment_token}"
+        BROKER.publish("depot", ticket.public())  # le poste de reception rafraichit sa liste
+        BROKER.publish("validation", payload, canal=token)
+        self._json(payload)
+
+    def _get_payment(self, jeton: str) -> None:
+        ticket = STORE.get_by_payment(jeton)
+        if ticket is None or not ticket.validated:
+            return self._error(HTTPStatus.NOT_FOUND, "Commande inconnue ou expiree")
+        self._json(ticket.paiement())
+
+    def _pay(self, jeton: str) -> None:
+        """Enregistre le reglement.
+
+        Aucun prestataire de paiement n'est branche : cette route se contente de
+        marquer la commande comme reglee. C'est ici qu'un encaissement reel
+        (Stripe, SumUp...) viendrait se greffer, apres verification cote serveur.
+        """
+        ticket = STORE.mark_paid(jeton)
+        BROKER.publish("paiement", ticket.public())  # poste de reception
+        BROKER.publish("paiement", ticket.session(), canal=ticket.token)  # la borne
+        BROKER.publish("paiement", ticket.paiement(), canal=jeton)  # page de reglement
+        self._json(ticket.paiement())
+
+    def _read_json(self) -> dict | None:
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > 64 * 1024:
+            return None
+        brut = self._read_exactly(length)
+        if brut is None:
+            return None
+        try:
+            charge = json.loads(brut.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        return charge if isinstance(charge, dict) else None
 
     def _delete_image(self, image_id: str) -> None:
         found = STORE.find_image(image_id)
