@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Récupérer un dépôt</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="enveloppe">
+    <header class="entete">
+      <a class="marque" href="/">
+        <img class="marque__logo" src="/assets/logo.svg" alt="">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous">Poste de récupération</span>
+        </span>
+      </a>
+      <nav class="navigation">
+        <a href="/">Déposer</a>
+        <a href="/recuperer">Récupérer</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Saisie du code -->
+      <section id="etape-code">
+        <div class="centre">
+          <h1 class="titre">Récupérer un dépôt</h1>
+          <p class="chapeau">Saisissez le code à 4 chiffres affiché sur la borne.</p>
+        </div>
+
+        <div class="carte">
+          <form class="saisie-code" id="formulaire-code" autocomplete="off">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Chiffre 1">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Chiffre 2">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Chiffre 3">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Chiffre 4">
+          </form>
+          <p class="message message--erreur cache" id="message-code" style="margin-top: 1.25rem"></p>
+        </div>
+
+        <div class="section">
+          <div class="section__titre">
+            <h2>Derniers dépôts</h2>
+            <span class="pastille"><span class="pastille__point"></span> En direct</span>
+          </div>
+          <ul class="depots" id="liste-depots"></ul>
+          <p class="vide cache" id="aucun-depot">
+            Aucun dépôt pour le moment. Les images déposées sur la borne apparaîtront ici
+            automatiquement.
+          </p>
+        </div>
+      </section>
+
+      <!-- Contenu d'un dépôt -->
+      <section id="etape-contenu" class="cache">
+        <div class="section__titre">
+          <div>
+            <h1 class="titre" style="font-size: clamp(1.6rem, 4vw, 2.2rem)">
+              Dépôt <span id="titre-code"></span>
+            </h1>
+            <p class="ligne__detail" id="resume-contenu"></p>
+          </div>
+          <div class="actions">
+            <a class="bouton bouton--secondaire" id="btn-zip" href="#">Tout télécharger (.zip)</a>
+            <button class="bouton bouton--secondaire" id="btn-retour" type="button">Retour</button>
+            <button class="bouton bouton--discret" id="btn-supprimer" type="button">
+              Supprimer le dépôt
+            </button>
+          </div>
+        </div>
+        <ul class="galerie" id="galerie"></ul>
+      </section>
+    </main>
+
+    <footer class="pied">
+      Symp's Kiosk · les dépôts sont supprimés automatiquement après
+      <span id="retention">24</span> h
+    </footer>
+  </div>
+
+  <script type="module" src="/assets/recuperer.js"></script>
+</body>
+</html>

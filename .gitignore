@@ -1,0 +1,11 @@
+# Dépôts d'images créés à l'exécution
+depots/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store

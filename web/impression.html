@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Impression</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="enveloppe">
+    <header class="entete">
+      <a class="marque" href="/">
+        <img class="marque__logo" src="/assets/logo.svg" alt="">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous">Impression</span>
+        </span>
+      </a>
+      <nav class="navigation">
+        <a href="/">Déposer</a>
+        <a href="/recuperer">Récupérer</a>
+      </nav>
+    </header>
+
+    <main class="impression">
+      <div class="centre no-print">
+        <h1 class="titre" id="titre-image">Impression</h1>
+        <p class="chapeau" id="details-image"></p>
+      </div>
+
+      <div class="impression__cadre">
+        <img id="image" alt="">
+      </div>
+
+      <div class="actions no-print">
+        <button class="bouton bouton--principal bouton--large" id="btn-imprimer" type="button">
+          Imprimer
+        </button>
+        <a class="bouton bouton--secondaire" id="btn-telecharger" href="#">Télécharger</a>
+        <a class="bouton bouton--secondaire" id="btn-retour" href="/recuperer">Retour au dépôt</a>
+      </div>
+
+      <p class="message message--erreur cache no-print" id="message-erreur"></p>
+    </main>
+  </div>
+
+  <script type="module" src="/assets/impression.js"></script>
+</body>
+</html>
