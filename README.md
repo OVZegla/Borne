@@ -181,6 +181,20 @@ Options en ligne de commande : `./start.sh --port 9000 --no-browser`
 
 ---
 
+## Remplacer le logo
+
+L'en-tête de toutes les pages affiche `web/assets/logo-symps.svg`. Ce fichier est
+une **reconstitution vectorielle** de la signature Symp's : les deux crochets
+sont exacts, mais le mot « Symp's » est composé avec la police système, pas avec
+la police d'origine.
+
+Pour mettre votre logo officiel : **écrasez ce fichier** par le vôtre (SVG de
+préférence, format horizontal, environ 2,6 fois plus large que haut). Aucune
+autre modification n'est nécessaire, les cinq pages le reprendront.
+
+`web/assets/logo.svg` est la version carrée, utilisée uniquement comme favicon :
+une signature horizontale serait illisible dans un onglet.
+
 ## Organisation du code
 
 ```
@@ -200,7 +214,7 @@ web/
   paiement.html        le téléphone : récapitulatif et règlement
   recuperer.html       la réception : saisie du code, galerie, statut de paiement
   impression.html      vue d'impression d'une image
-  assets/              CSS, JavaScript et logo
+  assets/              CSS, JavaScript et logos
 samples/               vos images d'exemple
 depots/                dépôts créés à l'exécution (ignoré par git)
 ```

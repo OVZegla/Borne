@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 258 100" role="img" aria-label="Symp's">
+  <title>Symp's</title>
+  <!-- Crochet bleu, en bas a gauche -->
+  <path fill="#00287E" d="M1.5 38.5h7v53.5h57v7h-64z"/>
+  <!-- Crochet rouge, en haut a droite -->
+  <path fill="#E30613" d="M58.5 1.5h53.5v34.5h-7v-27.5h-46.5z"/>
+  <!-- Signature. textLength fige la largeur du mot : le logo garde exactement les
+       memes proportions quelle que soit la police disponible sur la machine. -->
+  <text x="30" y="81" textLength="222" lengthAdjust="spacingAndGlyphs"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="66" font-weight="600" fill="#00287E">Symp&#8217;s</text>
+</svg>

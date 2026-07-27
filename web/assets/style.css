@@ -70,9 +70,10 @@ body {
   color: inherit;
 }
 
+/* Signature de marque : largeur libre, hauteur calee sur le texte a cote. */
 .marque__logo {
-  width: 46px;
-  height: 46px;
+  height: clamp(30px, 4vw, 38px);
+  width: auto;
   flex: none;
 }
 
@@ -80,6 +81,8 @@ body {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--bordure);
 }
 
 .marque__nom {
