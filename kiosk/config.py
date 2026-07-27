@@ -23,8 +23,12 @@ DATA_DIR = Path(os.environ.get("SYMPS_DATA", BASE_DIR / "depots")).resolve()
 FILES_DIR = DATA_DIR / "fichiers"
 INDEX_FILE = DATA_DIR / "index.json"
 
-# Duree de vie d'un depot avant suppression automatique.
+# Duree de vie d'un depot valide avant suppression automatique.
 RETENTION_HOURS = _int_env("SYMPS_RETENTION_HOURS", 24)
+
+# Duree au bout de laquelle une session restee vide (borne rafraichie, client
+# parti sans envoyer) est oubliee.
+DRAFT_RETENTION_HOURS = _int_env("SYMPS_DRAFT_HOURS", 2)
 
 MAX_FILE_BYTES = _int_env("SYMPS_MAX_MB", 25) * 1024 * 1024
 MAX_FILES_PER_TICKET = _int_env("SYMPS_MAX_FILES", 20)

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#00287E">
-  <title>Symp's Kiosk — Déposer une image</title>
+  <title>Symp's Kiosk — Borne</title>
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
@@ -15,90 +15,118 @@
         <img class="marque__logo" src="/assets/logo.svg" alt="">
         <span class="marque__texte">
           <span class="marque__nom">Symp's Kiosk</span>
-          <span class="marque__sous">Borne de dépôt d'images</span>
+          <span class="marque__sous">Borne</span>
         </span>
       </a>
       <nav class="navigation">
-        <a href="/">Déposer</a>
+        <a href="/">Borne</a>
         <a href="/recuperer">Récupérer</a>
       </nav>
     </header>
 
     <main>
-      <!-- Étape 1 : dépôt -->
-      <section id="etape-depot">
+      <!-- Étape 1 : on attend les photos du téléphone -->
+      <section id="etape-attente">
         <div class="centre">
-          <h1 class="titre">Déposez vos images</h1>
+          <h1 class="titre">Scannez pour envoyer vos photos</h1>
           <p class="chapeau">
-            Glissez vos fichiers ci-dessous. Vous recevrez un code à 4 chiffres
-            à saisir sur le poste d'impression pour les récupérer.
+            Ouvrez l'appareil photo de votre téléphone et visez le code
+            ci-dessous. Vos photos s'afficheront ici automatiquement.
           </p>
         </div>
 
-        <div class="carte">
-          <div class="depose" id="zone-depot" role="button" tabindex="0"
-               aria-label="Ajouter des images">
-            <svg class="depose__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 16V4m0 0L8 8m4-4 4 4"></path>
-              <path d="M4 15v3a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-3"></path>
-            </svg>
-            <span class="depose__titre">Glissez vos images ici</span>
-            <span class="depose__aide" id="aide-depot">ou cliquez pour choisir un fichier</span>
-            <input type="file" id="champ-fichier" multiple accept="image/*,application/pdf">
-          </div>
+        <div class="carte carte--scan">
+          <figure class="qr qr--geant">
+            <img id="image-qr" alt="QR code pour envoyer vos photos">
+            <figcaption>
+              Ou saisissez cette adresse dans votre navigateur&nbsp;:<br>
+              <span class="url-reseau" id="url-envoi"></span>
+            </figcaption>
+          </figure>
 
-          <ul class="file" id="file-envoi"></ul>
+          <ol class="etapes">
+            <li class="etape">
+              <span class="etape__num">1</span>
+              <span class="etape__texte"><strong>Scannez</strong> le QR code avec votre téléphone</span>
+            </li>
+            <li class="etape">
+              <span class="etape__num">2</span>
+              <span class="etape__texte"><strong>Choisissez</strong> vos photos et envoyez-les</span>
+            </li>
+            <li class="etape">
+              <span class="etape__num">3</span>
+              <span class="etape__texte"><strong>Validez</strong> ici, puis récupérez votre code</span>
+            </li>
+          </ol>
+        </div>
 
-          <div class="actions" id="actions-depot" style="margin-top: 1.25rem">
-            <button class="bouton bouton--secondaire" id="btn-parcourir" type="button">
-              Choisir des fichiers
-            </button>
-            <button class="bouton bouton--secondaire" id="btn-photo" type="button">
-              Prendre une photo
-            </button>
-            <button class="bouton bouton--principal bouton--large cache" id="btn-terminer" type="button">
-              Terminer et afficher le code
-            </button>
+        <p class="attente" id="temoin-attente">
+          <span class="attente__point"></span> En attente de vos photos…
+        </p>
+      </section>
+
+      <!-- Étape 2 : les photos arrivent, on les regarde en grand -->
+      <section id="etape-apercu" class="cache">
+        <div class="centre">
+          <h1 class="titre" id="titre-apercu">Photo bien reçue&nbsp;!</h1>
+          <p class="chapeau" id="sous-titre-apercu">
+            Vérifiez la photo, puis validez pour obtenir votre code de retrait.
+          </p>
+        </div>
+
+        <div class="scene">
+          <div class="scene__cadre">
+            <img id="photo-geante" alt="Dernière photo reçue">
           </div>
+          <p class="scene__legende" id="legende-photo"></p>
+        </div>
+
+        <ul class="bande" id="bande-photos"></ul>
+
+        <div class="actions" style="margin-top: 1.75rem">
+          <button class="bouton bouton--principal bouton--large" id="btn-valider" type="button">
+            Valider et obtenir mon code
+          </button>
+          <button class="bouton bouton--secondaire" id="btn-ajouter" type="button">
+            Ajouter d'autres photos
+          </button>
+          <button class="bouton bouton--discret" id="btn-annuler" type="button">
+            Tout annuler
+          </button>
         </div>
       </section>
 
-      <!-- Étape 2 : le code à emporter -->
+      <!-- Étape 3 : le code de retrait -->
       <section id="etape-code" class="cache">
         <div class="centre">
-          <h1 class="titre">C'est prêt&nbsp;!</h1>
+          <h1 class="titre">Votre code de retrait</h1>
           <p class="chapeau">
-            Saisissez ce code sur le poste d'impression, ou scannez le QR code
-            avec l'appareil qui doit récupérer les images.
+            Communiquez ce code au poste d'impression pour récupérer vos photos.
           </p>
         </div>
 
         <div class="carte">
           <div class="ticket">
             <div>
-              <span class="code__legende">Votre code de retrait</span>
+              <span class="code__legende">Code à 4 chiffres</span>
               <p class="code" id="affichage-code">····</p>
               <p class="ligne__detail" id="resume-depot"></p>
               <div class="actions" style="justify-content: flex-start; margin-top: 1.25rem">
-                <a class="bouton bouton--principal" id="lien-recuperer" href="/recuperer">
-                  Ouvrir la page de retrait
-                </a>
-                <button class="bouton bouton--secondaire" id="btn-nouveau" type="button">
+                <button class="bouton bouton--principal" id="btn-recommencer" type="button">
                   Nouveau dépôt
                 </button>
+                <a class="bouton bouton--secondaire" id="lien-recuperer" href="/recuperer">
+                  Ouvrir la page de retrait
+                </a>
               </div>
             </div>
             <figure class="qr" style="margin: 0">
-              <img id="image-qr" alt="QR code vers la page de retrait">
-              <figcaption>
-                Scannez pour ouvrir directement le dépôt<br>
-                <span class="url-reseau" id="url-reseau"></span>
-              </figcaption>
+              <img id="qr-retrait" alt="QR code vers le dépôt">
+              <figcaption>Scannez pour ouvrir le dépôt sur un autre appareil</figcaption>
             </figure>
           </div>
 
-          <ul class="galerie" id="galerie-depot" style="margin-top: 1.75rem"></ul>
+          <ul class="galerie" id="galerie-finale" style="margin-top: 1.75rem"></ul>
         </div>
       </section>
 
@@ -111,6 +139,6 @@
     </footer>
   </div>
 
-  <script type="module" src="/assets/depot.js"></script>
+  <script type="module" src="/assets/borne.js"></script>
 </body>
 </html>

@@ -59,9 +59,13 @@ export function extension(mime) {
   return (mime.split('/')[1] || 'fichier').toUpperCase();
 }
 
-/** Reconnexion automatique geree par le navigateur ; on ne fait qu'ecouter. */
-export function ecouterEvenements(gestionnaires) {
-  const source = new EventSource('/api/evenements');
+/**
+ * Reconnexion automatique geree par le navigateur ; on ne fait qu'ecouter.
+ * Avec un jeton, on ne recoit que les evenements de cette session.
+ */
+export function ecouterEvenements(gestionnaires, jeton = null) {
+  const adresse = jeton ? `/api/evenements?session=${encodeURIComponent(jeton)}` : '/api/evenements';
+  const source = new EventSource(adresse);
   for (const [nom, gestionnaire] of Object.entries(gestionnaires)) {
     source.addEventListener(nom, (evenement) => {
       let donnees = null;

@@ -26,26 +26,30 @@ STORE = Store()
 
 
 class Broker:
-    """Petit bus publication/abonnement pour les flux SSE."""
+    """Bus publication/abonnement pour les flux SSE.
+
+    Deux canaux : le canal public (poste de retrait) et un canal par session,
+    pour que le jeton d'une borne ne fuite pas vers les autres pages ouvertes.
+    """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._subscribers: set[queue.Queue] = set()
+        self._subscribers: set[tuple[str | None, queue.Queue]] = set()
 
-    def subscribe(self) -> queue.Queue:
-        channel: queue.Queue = queue.Queue(maxsize=64)
+    def subscribe(self, canal: str | None = None) -> tuple[str | None, queue.Queue]:
+        abonne = (canal, queue.Queue(maxsize=64))
         with self._lock:
-            self._subscribers.add(channel)
-        return channel
+            self._subscribers.add(abonne)
+        return abonne
 
-    def unsubscribe(self, channel: queue.Queue) -> None:
+    def unsubscribe(self, abonne: tuple[str | None, queue.Queue]) -> None:
         with self._lock:
-            self._subscribers.discard(channel)
+            self._subscribers.discard(abonne)
 
-    def publish(self, event: str, data: dict) -> None:
+    def publish(self, event: str, data: dict, canal: str | None = None) -> None:
         message = f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
         with self._lock:
-            targets = list(self._subscribers)
+            targets = [channel for abonne, channel in self._subscribers if abonne == canal]
         for channel in targets:
             try:
                 channel.put_nowait(message)
@@ -174,6 +178,7 @@ class Handler(BaseHTTPRequestHandler):
     def _dispatch(self, method: str, path: str, query: dict) -> None:
         pages = {
             "/": "index.html",
+            "/envoyer": "envoyer.html",
             "/recuperer": "recuperer.html",
             "/impression": "impression.html",
         }
@@ -183,7 +188,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._serve_file(config.WEB_DIR / pages[path])
             if path.startswith("/assets/"):
                 return self._serve_asset(path)
-            if path == "/r":  # lien court encode dans le QR code
+            if path == "/e":  # lien court encode dans le QR code de la borne
+                token = (query.get("s") or [""])[0]
+                return self._redirect(f"/envoyer?s={quote(token)}")
+            if path == "/r":  # lien court vers un depot deja valide
                 code = (query.get("c") or [""])[0]
                 return self._redirect(f"/recuperer?code={quote(code)}")
             if path == "/qr.svg":
@@ -193,26 +201,34 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/depots":
                 return self._json([t.public() for t in STORE.recent()])
             if path == "/api/evenements":
-                return self._events()
+                return self._events((query.get("session") or [None])[0])
+            if path.startswith("/api/sessions/"):
+                return self._get_session(path[len("/api/sessions/"):])
             if path.startswith("/api/depots/"):
                 return self._get_ticket(path)
             if path.startswith("/media/"):
                 return self._media(path.split("/media/", 1)[1], "dl" in query)
 
         elif method == "POST":
-            if path == "/api/depots":
-                ticket = STORE.create_ticket()
-                BROKER.publish("depot", ticket.public())
-                return self._json(ticket.public(), HTTPStatus.CREATED)
-            if path.startswith("/api/depots/") and path.endswith("/images"):
-                code = path[len("/api/depots/"):-len("/images")]
-                return self._upload(code)
+            if path == "/api/sessions":
+                return self._open_session()
+            if path.startswith("/api/sessions/") and path.endswith("/images"):
+                token = path[len("/api/sessions/"):-len("/images")]
+                return self._upload(token)
+            if path.startswith("/api/sessions/") and path.endswith("/valider"):
+                token = path[len("/api/sessions/"):-len("/valider")]
+                return self._validate(token)
 
         elif method == "DELETE":
             if path == "/api/depots":
                 removed = STORE.clear()
                 BROKER.publish("purge", {"depots": removed})
                 return self._json({"supprimes": removed})
+            if path.startswith("/api/sessions/"):
+                token = path[len("/api/sessions/"):]
+                if not STORE.abandon(token):
+                    return self._error(HTTPStatus.NOT_FOUND, "Session introuvable")
+                return self._json({"abandonnee": True})
             if path.startswith("/api/depots/"):
                 code = path[len("/api/depots/"):]
                 if not STORE.delete_ticket(code):
@@ -221,10 +237,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"supprime": code})
             if path.startswith("/api/images/"):
                 image_id = path[len("/api/images/"):]
-                if not STORE.delete_image(image_id):
-                    return self._error(HTTPStatus.NOT_FOUND, "Image introuvable")
-                BROKER.publish("suppression", {"image": image_id})
-                return self._json({"supprime": image_id})
+                return self._delete_image(image_id)
 
         self._error(HTTPStatus.NOT_FOUND, "Ressource introuvable")
 
@@ -245,6 +258,38 @@ class Handler(BaseHTTPRequestHandler):
             }
         )
 
+    def _open_session(self) -> None:
+        """La borne ouvre une session et recoit le lien a mettre dans son QR code."""
+        ticket = STORE.create_ticket()
+        port = self.server.server_address[1]
+        payload = ticket.session()
+        payload["url_envoi"] = f"{preferred_url(port)}/e?s={ticket.token}"
+        self._json(payload, HTTPStatus.CREATED)
+
+    def _get_session(self, token: str) -> None:
+        ticket = STORE.get_by_token(token)
+        if ticket is None:
+            return self._error(HTTPStatus.NOT_FOUND, "Session inconnue ou expiree")
+        self._json(ticket.session())
+
+    def _validate(self, token: str) -> None:
+        """L'operateur valide sur la borne : le code de retrait est revele."""
+        ticket = STORE.validate(token)
+        BROKER.publish("depot", ticket.public())  # le poste de retrait rafraichit sa liste
+        BROKER.publish("validation", ticket.session(), canal=token)
+        self._json(ticket.session())
+
+    def _delete_image(self, image_id: str) -> None:
+        found = STORE.find_image(image_id)
+        if found is None:
+            return self._error(HTTPStatus.NOT_FOUND, "Image introuvable")
+        ticket = found[0]
+        canal = None if ticket.validated else ticket.token
+        if not STORE.delete_image(image_id):
+            return self._error(HTTPStatus.NOT_FOUND, "Image introuvable")
+        BROKER.publish("suppression", {"image": image_id}, canal=canal)
+        self._json({"supprime": image_id})
+
     def _get_ticket(self, path: str) -> None:
         rest = path[len("/api/depots/"):]
         if rest.endswith("/zip"):
@@ -254,7 +299,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.NOT_FOUND, "Aucun depot avec ce code")
         self._json(ticket.public())
 
-    def _upload(self, code: str) -> None:
+    def _upload(self, token: str) -> None:
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0:
             return self._error(HTTPStatus.BAD_REQUEST, "Requete sans contenu")
@@ -274,8 +319,10 @@ class Handler(BaseHTTPRequestHandler):
 
         mime = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         name = unquote(self.headers.get("X-Nom-Fichier") or "")
-        image = STORE.add_image(code, name, mime, data)
-        BROKER.publish("image", {"code": code, "image": image.public()})
+        image = STORE.add_image(token, name, mime, data)
+        # Seule la borne de cette session est notifiee : c'est elle qui affiche
+        # la photo en grand des sa reception.
+        BROKER.publish("image", {"image": image.public()}, canal=token)
         self._json(image.public(), HTTPStatus.CREATED)
 
     def _drain(self, length: int, plafond: int = 512 * 1024 * 1024) -> None:
@@ -355,8 +402,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.BAD_REQUEST, str(exc))
         self._send(HTTPStatus.OK, svg.encode("utf-8"), "image/svg+xml; charset=utf-8")
 
-    def _events(self) -> None:
-        channel = BROKER.subscribe()
+    def _events(self, canal: str | None = None) -> None:
+        abonne = BROKER.subscribe(canal)
+        channel = abonne[1]
         self.close_connection = True
         try:
             self.send_response(HTTPStatus.OK)
@@ -376,7 +424,7 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
-            BROKER.unsubscribe(channel)
+            BROKER.unsubscribe(abonne)
 
     # --- fichiers statiques ------------------------------------------------
 

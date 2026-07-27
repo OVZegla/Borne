@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Envoyer vos photos</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="enveloppe enveloppe--etroite">
+    <header class="entete entete--simple">
+      <span class="marque">
+        <img class="marque__logo" src="/assets/logo.svg" alt="">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous">Envoi depuis votre téléphone</span>
+        </span>
+      </span>
+    </header>
+
+    <main>
+      <section id="etape-envoi">
+        <div class="centre">
+          <h1 class="titre">Envoyez vos photos</h1>
+          <p class="chapeau" id="chapeau">
+            Elles s'afficheront aussitôt sur l'écran de la borne.
+          </p>
+        </div>
+
+        <div class="actions actions--empilees">
+          <button class="bouton bouton--principal bouton--large" id="btn-photo" type="button">
+            Prendre une photo
+          </button>
+          <button class="bouton bouton--secondaire bouton--large" id="btn-galerie" type="button">
+            Choisir dans ma galerie
+          </button>
+          <input type="file" id="champ-fichier" multiple accept="image/*" class="cache-champ">
+        </div>
+
+        <ul class="file" id="file-envoi"></ul>
+
+        <p class="message message--info cache" id="message-succes" style="margin-top: 1.5rem"></p>
+        <p class="message message--erreur cache" id="message-erreur" style="margin-top: 1.5rem"></p>
+      </section>
+
+      <section id="etape-fin" class="cache centre">
+        <div class="coche" aria-hidden="true">
+          <svg viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="4"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="26" cy="26" r="23"></circle>
+            <path d="M15 27l8 8 15-16"></path>
+          </svg>
+        </div>
+        <h1 class="titre">C'est envoyé&nbsp;!</h1>
+        <p class="chapeau" id="resume-fin"></p>
+        <p class="message message--info">
+          Retournez à la borne&nbsp;: vos photos y sont affichées. Validez-y pour
+          obtenir votre code de retrait.
+        </p>
+        <div class="actions" style="margin-top: 1.5rem">
+          <button class="bouton bouton--secondaire" id="btn-encore" type="button">
+            Envoyer d'autres photos
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="pied">Symp's Kiosk</footer>
+  </div>
+
+  <script type="module" src="/assets/envoyer.js"></script>
+</body>
+</html>
