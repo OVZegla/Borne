@@ -20,6 +20,29 @@ la bibliothèque standard.
 
 ---
 
+## Plusieurs machines dans la boutique
+
+Au lancement, l'application cherche sur le réseau local une machine du même
+atelier déjà démarrée :
+
+- **elle en trouve une** → ce poste s'y connecte et ouvre son navigateur dessus.
+  Rien à configurer, aucune adresse à taper ;
+- **elle n'en trouve pas** → cette machine devient l'**hôte** : elle stocke les
+  dépôts et se signale aux autres.
+
+Concrètement : lancez l'application sur la machine qui garde les photos, puis sur
+la borne et sur le poste de réception. Elles se trouvent toutes seules.
+
+```bash
+./start.sh            # rôle choisi automatiquement
+./start.sh --hote     # forcer cette machine comme hôte
+./start.sh --poste    # se connecter uniquement, ne jamais héberger
+```
+
+L'identifiant d'atelier (`depots/atelier.txt`, ou `SYMPS_ATELIER`) évite qu'une
+borne rejoigne l'hôte d'une autre boutique sur un réseau partagé. Ce n'est pas un
+secret : toutes les machines doivent être sur le même réseau de confiance.
+
 ## Démarrer sur un Mac
 
 Dans le Finder, double-cliquez sur **`Symp's Kiosk.command`**.
@@ -137,6 +160,8 @@ Tout se règle par variables d'environnement, sans toucher au code :
 | --- | --- | --- |
 | `SYMPS_PORT` | `8080` | port d'écoute (glisse au port suivant s'il est pris) |
 | `SYMPS_HOST` | `0.0.0.0` | interface d'écoute |
+| `SYMPS_DISCOVERY_PORT` | `8079` | port UDP d'appairage des machines |
+| `SYMPS_ATELIER` | auto | identifiant partagé par les machines d'une boutique |
 | `SYMPS_DATA` | `./depots` | dossier de stockage des dépôts |
 | `SYMPS_RETENTION_HOURS` | `24` | conservation d'un dépôt, à partir de sa validation |
 | `SYMPS_DRAFT_HOURS` | `2` | oubli d'une session ouverte mais restée vide |
@@ -203,6 +228,7 @@ start.sh               lanceur (vérifie Python 3)
 Symp's Kiosk.command   lanceur double-cliquable depuis le Finder
 kiosk/
   config.py            réglages et variables d'environnement
+  reseau.py            appairage automatique des machines en LAN
   catalogue.py         matières, formats, formes ET GRILLE DE PRIX
   server.py            serveur HTTP, routes, flux temps réel (SSE)
   storage.py           dépôts, articles, paiement, expiration

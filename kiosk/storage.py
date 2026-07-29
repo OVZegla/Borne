@@ -157,8 +157,13 @@ class Store:
         self._tickets: dict[str, Ticket] = {}
         self._by_token: dict[str, Ticket] = {}
         self._by_payment: dict[str, Ticket] = {}
-        config.FILES_DIR.mkdir(parents=True, exist_ok=True)
         self._load()
+
+    @staticmethod
+    def _assurer_dossier() -> None:
+        """Cree l'arborescence au premier ecrit, pas a la construction : un poste
+        qui ne fait que rejoindre un hote ne doit rien laisser sur son disque."""
+        config.FILES_DIR.mkdir(parents=True, exist_ok=True)
 
     # --- persistance ---------------------------------------------------
 
@@ -197,6 +202,7 @@ class Store:
             self._by_payment[ticket.payment_token] = ticket
 
     def _save(self) -> None:
+        self._assurer_dossier()
         payload = {
             "version": 3,
             "tickets": [
@@ -358,6 +364,7 @@ class Store:
 
             image_id = uuid.uuid4().hex
             filename = image_id + config.ALLOWED_TYPES[mime]
+            self._assurer_dossier()
             (config.FILES_DIR / filename).write_bytes(data)
 
             size = imagemeta.dimensions(data)

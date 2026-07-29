@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
+
+VERSION = "1.0.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEB_DIR = BASE_DIR / "web"
@@ -18,6 +21,9 @@ def _int_env(name: str, default: int) -> int:
 
 HOST = os.environ.get("SYMPS_HOST", "0.0.0.0")
 PORT = _int_env("SYMPS_PORT", 8080)
+
+# Port UDP sur lequel les machines d'un meme atelier se cherchent.
+DISCOVERY_PORT = _int_env("SYMPS_DISCOVERY_PORT", 8079)
 
 DATA_DIR = Path(os.environ.get("SYMPS_DATA", BASE_DIR / "depots")).resolve()
 FILES_DIR = DATA_DIR / "fichiers"
@@ -49,3 +55,30 @@ ALLOWED_TYPES = {
 
 BRAND_NAME = "Symp's Kiosk"
 BRAND_COLOR = "#00287E"
+
+
+def atelier() -> str:
+    """Identifiant de l'atelier, partage par les machines d'une meme boutique.
+
+    Genere localement au premier lancement. Il prendra la valeur de l'identifiant
+    du compte abonne le jour ou l'activation par licence sera en place.
+    """
+    impose = os.environ.get("SYMPS_ATELIER")
+    if impose:
+        return impose
+
+    fichier = DATA_DIR / "atelier.txt"
+    try:
+        existant = fichier.read_text("utf-8").strip()
+        if existant:
+            return existant
+    except OSError:
+        pass
+
+    nouveau = secrets.token_hex(6)
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        fichier.write_text(nouveau, "utf-8")
+    except OSError:
+        pass
+    return nouveau

@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import catalogue, config, qr
+from . import catalogue, config, qr, reseau
 from .storage import Store, StorageError
 
 STORE = Store()
@@ -536,21 +536,31 @@ def build_server(host: str, port: int, attempts: int = 20) -> KioskServer:
     raise SystemExit(f"Aucun port libre entre {port} et {port + attempts - 1} ({last})")
 
 
-def serve(host: str | None = None, port: int | None = None, open_browser: bool = False) -> None:
+def serve(
+    host: str | None = None,
+    port: int | None = None,
+    open_browser: bool = False,
+    atelier: str | None = None,
+) -> None:
     server = build_server(host or config.HOST, port or config.PORT)
     actual_port = server.server_address[1]
 
     threading.Thread(target=_purge_loop, daemon=True).start()
+
+    # Les autres machines de la boutique trouveront cet hote toutes seules.
+    annonceur = reseau.Annonceur(atelier or config.atelier(), actual_port)
+    annonceur.demarrer()
 
     if open_browser:
         import webbrowser
 
         threading.Timer(0.8, webbrowser.open, [f"http://localhost:{actual_port}"]).start()
 
-    print(f"\n  {config.BRAND_NAME} est demarre.\n")
+    print(f"\n  {config.BRAND_NAME} — cette machine est l'hote.\n")
     print(f"  Sur cette machine   : http://localhost:{actual_port}")
     for address in local_addresses():
         print(f"  Depuis un autre app.: http://{address}:{actual_port}")
+    print("\n  Les autres postes de la boutique s'y connecteront tout seuls.")
     print(f"\n  Depots conserves {config.RETENTION_HOURS} h dans {config.DATA_DIR}")
     print("  Ctrl+C pour arreter.\n")
 
@@ -559,5 +569,6 @@ def serve(host: str | None = None, port: int | None = None, open_browser: bool =
     except KeyboardInterrupt:
         print("\n  Arret du Symp's Kiosk.")
     finally:
+        annonceur.arreter()
         server.shutdown()
         server.server_close()
