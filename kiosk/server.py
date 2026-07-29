@@ -280,8 +280,8 @@ class Handler(BaseHTTPRequestHandler):
                 token, _, fin = reste.partition("/images/")
                 if fin.endswith("/article"):
                     return self._set_article(token, fin[: -len("/article")])
-            if path.startswith("/api/paiement/") and path.endswith("/regler"):
-                return self._pay(path[len("/api/paiement/"):-len("/regler")])
+            if path.startswith("/api/depots/") and path.endswith("/paiement"):
+                return self._pay(path[len("/api/depots/"):-len("/paiement")])
             if path == "/api/reglages":
                 return self._enregistrer_reglages()
             if path == "/api/reglages/logo":
@@ -484,17 +484,24 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.NOT_FOUND, "Commande inconnue ou expiree")
         self._json({**ticket.paiement(), "config": reglages.tout()["paiement"]})
 
-    def _pay(self, jeton: str) -> None:
-        """Enregistre le reglement.
+    def _pay(self, code: str) -> None:
+        """Le commerçant confirme avoir encaisse.
 
-        Aucun prestataire de paiement n'est branche : cette route se contente de
-        marquer la commande comme reglee. C'est ici qu'un encaissement reel
-        (Stripe, SumUp...) viendrait se greffer, apres verification cote serveur.
+        Volontairement reserve au poste de reception : la route exige le code de
+        retrait, que le telephone du client ne connait pas. C'est la personne qui
+        voit l'argent qui declare le paiement, pas celle qui doit le verser.
+
+        Un encaissement verifie automatiquement viendrait se greffer ici, en
+        interrogeant l'API du prestataire avant de basculer le statut.
         """
-        ticket = STORE.mark_paid(jeton)
+        ticket = STORE.get(code)
+        if ticket is None:
+            return self._error(HTTPStatus.NOT_FOUND, "Aucun depot avec ce code")
+        ticket = STORE.mark_paid(ticket.payment_token)
         BROKER.publish("paiement", ticket.public())  # poste de reception
         BROKER.publish("paiement", ticket.session(), canal=ticket.token)  # la borne
-        BROKER.publish("paiement", ticket.paiement(), canal=jeton)  # page de reglement
+        # Le telephone du client suit l'etat en direct sur le canal de sa commande.
+        BROKER.publish("paiement", ticket.paiement(), canal=ticket.payment_token)
         self._json(ticket.paiement())
 
     def _read_json(self) -> dict | None:

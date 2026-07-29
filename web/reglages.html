@@ -84,6 +84,39 @@
         </div>
       </section>
 
+      <!-- Tarification -->
+      <section class="carte section">
+        <div class="section__titre"><h2>Comment vous fixez vos prix</h2></div>
+
+        <div class="modes">
+          <label class="mode">
+            <input type="radio" name="tarification" value="coefficient" id="mode-coefficient">
+            <span class="mode__corps">
+              <span class="mode__titre">Un prix par format</span>
+              <span class="mode__texte">
+                Vous fixez le prix de chaque format, puis un <strong>coefficient</strong>
+                par matière qui le multiplie. Pratique si vos prix sont déjà établis
+                format par format.
+              </span>
+            </span>
+          </label>
+
+          <label class="mode">
+            <input type="radio" name="tarification" value="surface" id="mode-surface">
+            <span class="mode__corps">
+              <span class="mode__titre">Un prix au mètre carré</span>
+              <span class="mode__texte">
+                Vous donnez un <strong>prix au m²</strong> par matière, et le tarif se
+                calcule tout seul à partir des dimensions. Plus simple à tenir&nbsp;:
+                un nouveau format n'a pas besoin de prix.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div class="exemple" id="exemple-tarif"></div>
+      </section>
+
       <!-- Matières -->
       <section class="carte section">
         <div class="section__titre">
@@ -92,11 +125,7 @@
             Ajouter une matière
           </button>
         </div>
-        <p class="choix__note" style="margin-bottom: 1rem">
-          Le prix d'un tirage vaut&nbsp;: <strong>prix du format × coefficient de la
-          matière + supplément de coupe</strong>. Un coefficient de 1 vend au prix
-          du format.
-        </p>
+        <p class="choix__note" id="aide-matieres" style="margin-bottom: 1rem"></p>
         <div class="tableau" id="tableau-matieres"></div>
       </section>
 
@@ -108,10 +137,7 @@
             Ajouter un format
           </button>
         </div>
-        <p class="choix__note" style="margin-bottom: 1rem">
-          Saisissez les dimensions en portrait (largeur inférieure à la hauteur)&nbsp;:
-          le client choisira lui-même portrait ou paysage sur la borne.
-        </p>
+        <p class="choix__note" id="aide-formats" style="margin-bottom: 1rem"></p>
         <div class="tableau" id="tableau-formats"></div>
       </section>
 
@@ -134,6 +160,47 @@
         </p>
         <div class="tableau" id="tableau-formes"></div>
       </section>
+
+      <!-- Éditeur de coupe -->
+      <div class="voile cache" id="voile-editeur">
+        <div class="editeur">
+          <div class="section__titre">
+            <h2 id="editeur-titre">Dessiner la coupe</h2>
+            <button class="bouton bouton--discret" id="editeur-fermer" type="button">Fermer</button>
+          </div>
+          <p class="choix__note">
+            Cliquez dans le cadre pour poser un point, glissez-le pour l'ajuster,
+            cliquez sur un point pour le retirer. Le contour se referme tout seul.
+          </p>
+          <div class="editeur__scene">
+            <svg id="editeur-svg" viewBox="0 0 100 100" preserveAspectRatio="none"
+                 role="application" aria-label="Contour de la coupe">
+              <defs>
+                <pattern id="damier" width="8" height="8" patternUnits="userSpaceOnUse">
+                  <rect width="8" height="8" fill="#fff"/>
+                  <rect width="4" height="4" fill="#eef2fb"/>
+                  <rect x="4" y="4" width="4" height="4" fill="#eef2fb"/>
+                </pattern>
+              </defs>
+              <rect width="100" height="100" fill="url(#damier)"/>
+              <polygon id="editeur-contour" points=""></polygon>
+              <g id="editeur-points"></g>
+            </svg>
+          </div>
+          <div class="actions" style="margin-top: 1rem">
+            <button class="bouton bouton--secondaire" id="editeur-carre" type="button">Carré</button>
+            <button class="bouton bouton--secondaire" id="editeur-losange" type="button">Losange</button>
+            <button class="bouton bouton--secondaire" id="editeur-etoile" type="button">Étoile</button>
+            <button class="bouton bouton--discret" id="editeur-vider" type="button">Tout effacer</button>
+          </div>
+          <p class="message message--erreur cache" id="editeur-erreur" style="margin-top: 1rem"></p>
+          <div class="actions" style="margin-top: 1rem">
+            <button class="bouton bouton--principal bouton--large" id="editeur-valider" type="button">
+              Utiliser cette forme
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Paiement -->
       <section class="carte section">

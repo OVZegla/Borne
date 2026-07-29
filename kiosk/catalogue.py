@@ -39,6 +39,16 @@ def formes() -> dict[str, dict]:
     return _index(reglages.tout()["catalogue"]["formes"])
 
 
+def tarification() -> str:
+    return reglages.tout()["catalogue"].get("tarification", "coefficient")
+
+
+def surface_m2(format_: str) -> float:
+    """Surface du tirage en metres carres."""
+    entree = formats()[format_]
+    return (entree["largeur"] / 100) * (entree["hauteur"] / 100)
+
+
 def formes_actives() -> bool:
     return bool(reglages.tout()["catalogue"]["formes_actives"])
 
@@ -77,10 +87,21 @@ def verifier(matiere: str, format_: str, forme: str, orientation: str = PORTRAIT
         raise CatalogueError(f"La matiere {nom} ne se decoupe pas")
 
 
+def _base(matiere: dict, format_: dict, mode: str) -> float:
+    """Prix du tirage nu, avant supplement de coupe."""
+    if mode == "surface":
+        surface = (format_["largeur"] / 100) * (format_["hauteur"] / 100)
+        return surface * matiere.get("prix_m2", 0)
+    return format_["prix"] * matiere["coefficient"]
+
+
 def prix(matiere: str, format_: str, forme: str, orientation: str = PORTRAIT) -> float:
-    """Prix TTC d'un tirage, arrondi au centime."""
+    """Prix TTC d'un tirage, arrondi au centime.
+
+    L'orientation ne change rien : un 30x40 et un 40x30 ont la meme surface.
+    """
     verifier(matiere, format_, forme, orientation)
-    base = formats()[format_]["prix"] * matieres()[matiere]["coefficient"]
+    base = _base(matieres()[matiere], formats()[format_], tarification())
     return round(base + formes()[forme]["supplement"], 2)
 
 
@@ -110,6 +131,7 @@ def public() -> dict:
         f for f in valeurs["formes"] if actives or f["geometrie"] == "rectangle"
     ]
 
+    mode = valeurs.get("tarification", "coefficient")
     grille = {}
     for matiere in valeurs["matieres"]:
         for format_ in valeurs["formats"]:
@@ -117,9 +139,7 @@ def public() -> dict:
                 if forme["geometrie"] != "rectangle" and not matiere["decoupe"]:
                     continue
                 cle = f"{matiere['cle']}|{format_['cle']}|{forme['cle']}"
-                grille[cle] = round(
-                    format_["prix"] * matiere["coefficient"] + forme["supplement"], 2
-                )
+                grille[cle] = round(_base(matiere, format_, mode) + forme["supplement"], 2)
 
     return {
         "matieres": [
@@ -137,10 +157,16 @@ def public() -> dict:
             for f in valeurs["formats"]
         ],
         "formes": [
-            {"cle": f["cle"], "nom": f["nom"], "geometrie": f["geometrie"]}
+            {
+                "cle": f["cle"],
+                "nom": f["nom"],
+                "geometrie": f["geometrie"],
+                "points": f.get("points"),
+            }
             for f in liste_formes
         ],
         "formes_actives": actives,
+        "tarification": mode,
         "devise": DEVISE,
         "prix": grille,
     }

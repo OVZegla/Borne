@@ -1,6 +1,6 @@
 /* Page de règlement, ouverte sur le téléphone après scan du QR de paiement. */
 
-import { $, api, element, prixLisible } from './commun.js';
+import { $, api, ecouterEvenements, element, prixLisible } from './commun.js';
 
 const jeton = new URLSearchParams(window.location.search).get('j');
 const erreur = $('#message-erreur');
@@ -39,11 +39,30 @@ function afficher() {
     $('#lien-externe').href = config.lien;
     $('#lien-externe').textContent = config.libelle || 'Payer maintenant';
     $('#bloc-externe').classList.remove('cache');
-    $('#btn-payer').textContent = "J'ai réglé ma commande";
-    $('#btn-payer').className = 'bouton bouton--secondaire bouton--large';
   }
 
+  majEtat();
   $('#etape-commande').classList.remove('cache');
+
+  // La boutique confirme l'encaissement de son côté : on suit en direct.
+  ecouterEvenements({
+    paiement: (donnees) => {
+      if (donnees?.paiement !== 'paye') return;
+      commande = { ...commande, ...donnees };
+      afficherPayee();
+    },
+  }, jeton);
+}
+
+function majEtat() {
+  const boite = $('#etat-commande');
+  if (!boite) return;
+  const paye = commande.paiement === 'paye';
+  boite.className = `etat ${paye ? 'etat--paye' : 'etat--attente'}`;
+  boite.replaceChildren(
+    element('span', { class: 'etat__point' }),
+    document.createTextNode(paye ? ' Réglé' : ' En attente de règlement'),
+  );
 }
 
 function afficherPayee() {
@@ -54,18 +73,6 @@ function afficherPayee() {
   $('#etape-commande').classList.add('cache');
   $('#etape-payee').classList.remove('cache');
 }
-
-$('#btn-payer').addEventListener('click', async () => {
-  const bouton = $('#btn-payer');
-  bouton.disabled = true;
-  try {
-    commande = await api(`/api/paiement/${jeton}/regler`, { method: 'POST' });
-    afficherPayee();
-  } catch (echec) {
-    echouer(`Règlement impossible : ${echec.message}`);
-    bouton.disabled = false;
-  }
-});
 
 function echouer(texte) {
   erreur.textContent = texte;

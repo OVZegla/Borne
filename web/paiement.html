@@ -43,14 +43,15 @@
               Payer maintenant
             </a>
           </div>
-          <button class="bouton bouton--principal bouton--large" id="btn-payer" type="button">
-            Régler ma commande
-          </button>
+
         </div>
 
-        <p class="message message--info" style="margin-top: 1.25rem">
-          Le règlement est confirmé à la réception&nbsp;: ce bouton signale votre
-          paiement à la boutique.
+        <p class="etat etat--attente" id="etat-commande" style="margin-top: 1.25rem">
+          <span class="etat__point"></span> En attente de règlement
+        </p>
+        <p class="message message--info" style="margin-top: 1rem">
+          Présentez cet écran à la boutique pour régler. Cette page passera au vert
+          dès que votre paiement sera confirmé.
         </p>
       </section>
 

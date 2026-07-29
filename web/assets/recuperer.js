@@ -131,6 +131,8 @@ function afficherDepot(depot, options = {}) {
     `${nombre} ${nombre > 1 ? 'tirages' : 'tirage'} · ` +
     `${prixLisible(depot.total, depot.devise)} · validé ${ilYA(depot.validated_at || depot.created_at)}`;
   $('#etat-depot').replaceChildren(badgePaiement(depot));
+  // L'encaissement se confirme ici, par la personne qui voit l'argent.
+  $('#btn-encaisser').classList.toggle('cache', depot.paiement === 'paye');
   $('#btn-zip').href = `/api/depots/${depot.code}/zip`;
   $('#btn-zip').classList.toggle('cache', nombre === 0);
 
@@ -203,6 +205,20 @@ function revenir() {
   url.searchParams.delete('code');
   window.history.replaceState({}, '', url);
 }
+
+$('#btn-encaisser').addEventListener('click', async () => {
+  if (!depotAffiche) return;
+  const total = prixLisible(depotAffiche.total, depotAffiche.devise);
+  if (!window.confirm(`Confirmer l'encaissement de ${total} pour le dépôt ${depotAffiche.code} ?`)) {
+    return;
+  }
+  try {
+    await api(`/api/depots/${depotAffiche.code}/paiement`, { method: 'POST' });
+    await rafraichirListe();
+  } catch (echec) {
+    window.alert(`Encaissement impossible : ${echec.message}`);
+  }
+});
 
 $('#btn-retour').addEventListener('click', revenir);
 

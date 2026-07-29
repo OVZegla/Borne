@@ -1492,3 +1492,134 @@ select:focus {
   font-weight: 600;
   color: var(--succes);
 }
+
+/* --- mode de tarification --------------------------------------------------- */
+
+.modes {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.mode {
+  display: flex;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.mode:hover {
+  border-color: var(--bleu-500);
+}
+
+.mode:has(input:checked) {
+  border-color: var(--bleu-800);
+  background: var(--bleu-050);
+}
+
+.mode input {
+  width: 20px;
+  height: 20px;
+  margin-top: 0.15rem;
+  accent-color: var(--bleu-800);
+  flex: none;
+}
+
+.mode__corps {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mode__titre {
+  font-weight: 700;
+  color: var(--bleu-900);
+}
+
+.mode__texte {
+  font-size: 0.9rem;
+  color: var(--gris);
+}
+
+.exemple {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--rayon);
+  background: var(--bleu-050);
+  border: 1px solid var(--bleu-100);
+  font-size: 0.95rem;
+}
+
+.exemple__etiquette {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.exemple__prix {
+  color: var(--bleu-800);
+  font-size: 1.1rem;
+}
+
+/* --- editeur de coupe ------------------------------------------------------- */
+
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(11, 18, 32, 0.55);
+  overflow: auto;
+}
+
+.editeur {
+  width: min(540px, 100%);
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+  background: var(--surface);
+  border-radius: var(--rayon-lg);
+  box-shadow: var(--ombre-forte);
+}
+
+.editeur__scene {
+  margin-top: 1rem;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  overflow: hidden;
+}
+
+#editeur-svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#editeur-contour {
+  fill: color-mix(in srgb, var(--bleu-600) 35%, transparent);
+  stroke: var(--bleu-800);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+
+.poignee {
+  fill: var(--surface);
+  stroke: var(--bleu-800);
+  stroke-width: 1;
+  cursor: grab;
+}
+
+.poignee:hover {
+  fill: var(--bleu-100);
+}

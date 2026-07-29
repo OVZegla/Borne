@@ -143,24 +143,35 @@ Scanner le QR code ouvre la page d'envoi. Deux boutons : **Prendre une photo**
 (déclenche l'appareil photo) ou **Choisir dans ma galerie**. Une fois l'envoi
 terminé, la page invite à retourner à la borne.
 
-Pas de QR code lisible ? L'adresse est écrite en toutes lettres sous le code.
-
 ### Le paiement
 
 Après validation, la borne affiche un second QR code, distinct de celui d'envoi.
 Le client le scanne et arrive sur le récapitulatif de sa commande avec le total.
+Selon les **réglages**, la page affiche en plus un lien vers votre PayPal, SumUp
+ou Stripe.
 
-Deux modes, au choix dans les **réglages** :
+**C'est le commerçant qui confirme l'encaissement**, depuis la réception, avec le
+bouton « Marquer comme payé ». Le téléphone du client passe alors au vert en
+direct.
 
-- **Règlement au comptoir** — le bouton signale le paiement à la réception ;
-- **Lien de paiement** — le client est envoyé vers votre page PayPal, SumUp ou
-  Stripe.
-
-> **Dans les deux cas, le règlement est confirmé à la réception.** Sans
-> raccordement à l'API de votre prestataire, la borne ne peut pas savoir seule
-> qu'un paiement a abouti. Pour une confirmation automatique, tout se passe dans
-> `_pay()` de `kiosk/server.py` : c'est le seul endroit qui bascule le statut, et
-> la vérification doit rester côté serveur.
+> ### Pourquoi le client ne peut-il pas se déclarer payé ?
+>
+> Parce que l'application n'a **aucun moyen de savoir si l'argent est arrivé**.
+> Le paiement se joue entre le client et son prestataire ; la borne n'est pas
+> dans cette conversation. Un bouton « j'ai payé » côté client ne prouve rien —
+> n'importe qui ayant le lien pourrait se marquer réglé sans payer.
+>
+> La confirmation appartient donc à la personne qui voit l'argent. Techniquement,
+> la route d'encaissement exige le **code de retrait à 4 chiffres**, que le
+> téléphone du client ne connaît jamais.
+>
+> **Et une confirmation automatique ?** Le mécanisme habituel — le *webhook*, où
+> le prestataire appelle votre serveur — ne fonctionne pas ici : l'application
+> tourne sur le réseau local d'une boutique, injoignable depuis Internet. La voie
+> praticable serait que la boutique **interroge l'API du prestataire** (elle, a
+> accès à Internet), au prix de saisir des identifiants API sur un poste de
+> boutique. Tout se brancherait dans `_pay()` de `kiosk/server.py`, seul endroit
+> qui bascule le statut.
 
 ### Sur le poste d'impression
 
@@ -300,18 +311,32 @@ trouve s'applique aussitôt sur tous les postes :
 - **Marque** — nom de la boutique, couleur principale, couleur d'accent, et son
   logo. Celui de Symp's et la mention « Symp's Kiosk » restent présents à côté,
   sur toutes les pages.
-- **Matières** — librement créées : un nom, un coefficient de prix, et le fait
-  qu'elles se découpent ou non. Rien n'est imposé.
-- **Formats** — librement créés : nom, largeur, hauteur et prix de base.
-  Saisissez-les en portrait, le client choisit lui-même portrait ou paysage.
-- **Coupes** — librement créées : un nom maison (« Hublot »…), une géométrie
-  parmi celles que la borne sait dessiner, et un supplément. **Une case unique
-  supprime tout le menu** pour une boutique sans machine de découpe : le serveur
-  refuse alors toute découpe, même forcée par l'API.
+- **Tarification** — deux façons de fixer vos prix, avec un exemple chiffré qui
+  s'actualise sous vos yeux :
+  - **un prix par format**, multiplié par un **coefficient** propre à chaque
+    matière (coefficient 1 = prix du format, 1,5 = moitié plus cher, 2 = double) ;
+  - **un prix au m²** par matière, le tarif se calculant depuis les dimensions.
+    Plus simple à tenir : un nouveau format n'a pas besoin de prix.
+- **Matières** — librement créées : un nom, son tarif, et le fait qu'elles se
+  découpent ou non. Rien n'est imposé.
+- **Formats** — librement créés : nom, largeur, hauteur. Saisissez-les en
+  portrait, le client choisit lui-même portrait ou paysage.
+- **Coupes** — librement créées : un nom maison (« Hublot »…), un supplément, et
+  soit une géométrie toute faite, soit **une forme que vous dessinez vous-même**.
+  **Une case unique supprime tout le menu** pour une boutique sans machine de
+  découpe : le serveur refuse alors toute découpe, même forcée par l'API.
 - **Encaissement** — au comptoir, ou vers votre propre lien de paiement.
 
-Le prix d'un tirage vaut toujours
-`prix du format × coefficient de la matière + supplément de coupe`.
+### Dessiner une coupe
+
+Choisissez la découpe « **Forme dessinée** », puis **Dessiner…**. Un éditeur
+s'ouvre : cliquez pour poser un point, glissez-le pour l'ajuster, cliquez dessus
+pour le retirer. Trois modèles de départ (carré, losange, étoile) évitent de
+partir de zéro. Le contour se referme tout seul et s'applique tel quel sur la
+borne.
+
+Cet éditeur n'existe **que dans les réglages** : le client de la boutique, lui,
+choisit seulement parmi les coupes proposées.
 
 ## Remplacer le logo
 
@@ -375,7 +400,7 @@ utilisé pour le retrait.
 | `POST` `DELETE` | `/api/reglages/logo` | logo de la boutique |
 | `GET` | `/assets/theme.css` | couleurs de la boutique, feuille générée |
 | `GET` | `/api/paiement/<jeton>` | récapitulatif de la commande et son statut |
-| `POST` | `/api/paiement/<jeton>/regler` | enregistre le règlement |
+| `POST` | `/api/depots/<code>/paiement` | la réception confirme l'encaissement |
 | `DELETE` | `/api/sessions/<jeton>` | abandonne la session en cours |
 | `GET` | `/api/depots` | liste les dépôts **validés** |
 | `GET` | `/api/depots/<code>` | contenu d'un dépôt validé |

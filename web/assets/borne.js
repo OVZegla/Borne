@@ -204,6 +204,11 @@ function majApercu() {
   }
   const forme = cat.formes.find((f) => f.cle === brouillon.forme);
   rendu.dataset.forme = forme ? forme.geometrie : 'rectangle';
+  // Une coupe dessinée par la boutique porte son propre contour.
+  rendu.style.clipPath =
+    forme?.geometrie === 'personnalise' && forme.points?.length >= 3
+      ? `polygon(${forme.points.map(([x, y]) => `${x}% ${y}%`).join(', ')})`
+      : '';
 }
 
 async function enregistrerArticle() {

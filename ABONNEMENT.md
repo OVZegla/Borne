@@ -175,7 +175,19 @@ service — mises à jour, support, garantie de fonctionnement.
 
 ---
 
-## 5. Ordre de marche conseillé
+## 5. Le paiement des clients finaux, à ne pas confondre
+
+Ce document parle de **votre** facturation : les boutiques qui vous paient un
+abonnement. C'est un sujet distinct de l'encaissement **des clients de la
+boutique**, décrit dans le README.
+
+Retenez la différence : votre service de licences est sur Internet, donc les
+webhooks Stripe y fonctionnent normalement. L'application de la boutique, elle,
+tourne sur un réseau local injoignable de l'extérieur : aucun webhook ne peut
+l'atteindre, et c'est pourquoi l'encaissement en boutique se confirme à la main
+à la réception.
+
+## 6. Ordre de marche conseillé
 
 1. **Domaine + hébergeur + PostgreSQL.**
 2. **Le service de licences** : comptes, mots de passe hachés, les deux routes,

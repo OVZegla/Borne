@@ -24,6 +24,13 @@ GEOMETRIES = {
     "triangle": "Triangle",
     "hexagone": "Hexagone",
     "arche": "Arche",
+    "personnalise": "Forme dessinée",
+}
+
+# Deux facons de tarifer, au choix de la boutique.
+TARIFICATIONS = {
+    "coefficient": "Prix fixe par format, multiplie par la matiere",
+    "surface": "Prix au metre carre, propre a chaque matiere",
 }
 
 COULEUR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -32,16 +39,17 @@ DEFAUTS = {
     "boutique": {"nom": "", "logo": None},
     "theme": {"primaire": "#00287E", "accent": "#3D6FE0"},
     "catalogue": {
+        "tarification": "coefficient",
         "formes_actives": True,
         "matieres": [
-            {"cle": "plexiglas", "nom": "Plexiglas", "coefficient": 1.80, "decoupe": True},
-            {"cle": "metal", "nom": "Métal", "coefficient": 1.90, "decoupe": True},
-            {"cle": "dibond", "nom": "Dibond", "coefficient": 1.60, "decoupe": True},
-            {"cle": "toile", "nom": "Toile", "coefficient": 1.35, "decoupe": False},
-            {"cle": "cadre", "nom": "Cadre", "coefficient": 1.50, "decoupe": True},
-            {"cle": "papier", "nom": "Papier", "coefficient": 1.00, "decoupe": True},
-            {"cle": "bois", "nom": "Bois", "coefficient": 1.70, "decoupe": True},
-            {"cle": "verre", "nom": "Verre", "coefficient": 2.00, "decoupe": True},
+            {"cle": "plexiglas", "nom": "Plexiglas", "coefficient": 1.80, "prix_m2": 480.0, "decoupe": True},
+            {"cle": "metal", "nom": "Métal", "coefficient": 1.90, "prix_m2": 505.0, "decoupe": True},
+            {"cle": "dibond", "nom": "Dibond", "coefficient": 1.60, "prix_m2": 425.0, "decoupe": True},
+            {"cle": "toile", "nom": "Toile", "coefficient": 1.35, "prix_m2": 360.0, "decoupe": False},
+            {"cle": "cadre", "nom": "Cadre", "coefficient": 1.50, "prix_m2": 400.0, "decoupe": True},
+            {"cle": "papier", "nom": "Papier", "coefficient": 1.00, "prix_m2": 265.0, "decoupe": True},
+            {"cle": "bois", "nom": "Bois", "coefficient": 1.70, "prix_m2": 450.0, "decoupe": True},
+            {"cle": "verre", "nom": "Verre", "coefficient": 2.00, "prix_m2": 530.0, "decoupe": True},
         ],
         "formats": [
             {"cle": "25x30", "nom": "25×30", "largeur": 25, "hauteur": 30, "prix": 24.00},
@@ -163,7 +171,8 @@ def _valider_catalogue(recu: dict) -> dict:
         matieres.append({
             "cle": cle,
             "nom": nom,
-            "coefficient": _nombre(brut.get("coefficient", 1), f"Matière « {nom} »", 0.01, 100),
+            "coefficient": _nombre(brut.get("coefficient", 1), f"Matière « {nom} » (coefficient)", 0.01, 100),
+            "prix_m2": _nombre(brut.get("prix_m2", 0), f"Matière « {nom} » (prix au m²)", 0, 100000),
             "decoupe": bool(brut.get("decoupe", True)),
         })
     if not matieres:
@@ -192,24 +201,47 @@ def _valider_catalogue(recu: dict) -> dict:
             raise ReglageError(f"Coupe « {nom} » : géométrie inconnue")
         cle = str(brut.get("cle") or "").strip() or cle_depuis(nom, prises)
         prises.add(cle)
-        formes.append({
+        entree = {
             "cle": cle,
             "nom": nom,
             "geometrie": geometrie,
             "supplement": _nombre(brut.get("supplement", 0), f"Coupe « {nom} »", 0, 100000),
-        })
+        }
+        if geometrie == "personnalise":
+            entree["points"] = _valider_points(brut.get("points"), nom)
+        formes.append(entree)
 
     # Une coupe « sans découpe » est indispensable : c'est le tirage rectangulaire.
     if not any(f["geometrie"] == "rectangle" for f in formes):
         formes.insert(0, {"cle": "initial", "nom": "Format initial",
                           "geometrie": "rectangle", "supplement": 0.0})
 
+    tarification = str(recu.get("tarification") or "coefficient")
+    if tarification not in TARIFICATIONS:
+        raise ReglageError("Mode de tarification inconnu")
+
     return {
+        "tarification": tarification,
         "formes_actives": bool(recu.get("formes_actives", True)),
         "matieres": matieres,
         "formats": formats,
         "formes": formes,
     }
+
+
+def _valider_points(recu, nom: str) -> list[list[float]]:
+    """Contour d'une forme dessinee, en pourcentages du cadre."""
+    if not isinstance(recu, list) or len(recu) < 3:
+        raise ReglageError(f"Coupe « {nom} » : il faut au moins trois points")
+    if len(recu) > 60:
+        raise ReglageError(f"Coupe « {nom} » : 60 points au maximum")
+    points = []
+    for point in recu:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise ReglageError(f"Coupe « {nom} » : point illisible")
+        x, y = (max(0.0, min(100.0, round(float(v), 2))) for v in point)
+        points.append([x, y])
+    return points
 
 
 def _valider_theme(recu: dict) -> dict:
