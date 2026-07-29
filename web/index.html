@@ -9,178 +9,276 @@
   <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/assets/theme.css">
 </head>
-<body>
-  <div class="enveloppe">
-    <header class="entete">
-      <a class="marque" href="/">
-        <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
-        <img class="marque__boutique cache" id="logo-boutique" alt="">
-        <span class="marque__texte">
-          <span class="marque__nom">Symp's Kiosk</span>
-          <span class="marque__sous">Borne</span>
-        </span>
-      </a>
-      <nav class="navigation">
-        <a href="/">Borne</a>
-        <a href="/recuperer">Réception</a>
-      </nav>
-    </header>
+<body class="borne">
 
-    <main>
-      <!-- Étape 1 : on attend les photos du téléphone -->
-      <section id="etape-attente">
-        <div class="centre">
-          <h1 class="titre">Scannez pour envoyer vos photos</h1>
-          <p class="chapeau">
-            Ouvrez l'appareil photo de votre téléphone et visez le code
-            ci-dessous. Vos photos s'afficheront ici automatiquement.
-          </p>
-        </div>
+  <!-- Barre supérieure : marque, parcours en trois étapes, aide -->
+  <header class="barre">
+    <a class="marque" href="/">
+      <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
+      <span class="marque__texte">
+        <span class="marque__nom">Symp's Kiosk</span>
+        <span class="marque__sous" id="nom-boutique">Borne</span>
+      </span>
+      <img class="marque__boutique cache" id="logo-boutique" alt="">
+    </a>
 
-        <div class="carte carte--scan">
-          <figure class="qr qr--geant">
-            <img id="image-qr" alt="QR code pour envoyer vos photos">
-            <figcaption>Visez ce code avec l'appareil photo de votre téléphone</figcaption>
-          </figure>
+    <ol class="parcours" id="parcours">
+      <li class="parcours__etape" data-etape="photo">
+        <span class="parcours__pastille">1</span>
+        <span class="parcours__nom">Photo</span>
+      </li>
+      <li class="parcours__trait"></li>
+      <li class="parcours__etape" data-etape="perso">
+        <span class="parcours__pastille">2</span>
+        <span class="parcours__nom">Personnalisation</span>
+      </li>
+      <li class="parcours__trait"></li>
+      <li class="parcours__etape" data-etape="validation">
+        <span class="parcours__pastille">3</span>
+        <span class="parcours__nom">Validation</span>
+      </li>
+    </ol>
 
-          <ol class="etapes">
-            <li class="etape">
-              <span class="etape__num">1</span>
-              <span class="etape__texte"><strong>Scannez</strong> le QR code avec votre téléphone</span>
-            </li>
-            <li class="etape">
-              <span class="etape__num">2</span>
-              <span class="etape__texte"><strong>Choisissez</strong> vos photos et envoyez-les</span>
-            </li>
-            <li class="etape">
-              <span class="etape__num">3</span>
-              <span class="etape__texte"><strong>Validez</strong> ici, puis récupérez votre code</span>
-            </li>
-          </ol>
-        </div>
+    <button class="bouton bouton--fantome" id="btn-aide" type="button">
+      <span class="rond-aide" aria-hidden="true">?</span> Besoin d'aide&nbsp;?
+    </button>
+  </header>
 
-        <p class="attente" id="temoin-attente">
-          <span class="attente__point"></span> En attente de vos photos…
+  <main class="scene-borne">
+
+    <!-- Étape 1 : on attend les photos du téléphone -->
+    <section id="etape-attente" class="attente-plein">
+      <div class="centre">
+        <img class="logo-accueil cache" id="logo-accueil" alt="">
+        <h1 class="titre">Scannez pour envoyer vos photos</h1>
+        <p class="chapeau">
+          Ouvrez l'appareil photo de votre téléphone et visez le code ci-dessous.
+          Vos photos s'afficheront ici automatiquement.
         </p>
-      </section>
+      </div>
 
-      <!-- Étape 2 : les photos arrivent, on les regarde en grand -->
-      <section id="etape-apercu" class="cache">
-        <div class="centre">
-          <h1 class="titre" id="titre-apercu">Photo bien reçue&nbsp;!</h1>
-          <p class="chapeau" id="sous-titre-apercu">
-            Vérifiez la photo, puis validez pour obtenir votre code de retrait.
+      <div class="carte carte--scan">
+        <figure class="qr qr--geant">
+          <img id="image-qr" alt="QR code pour envoyer vos photos">
+          <figcaption>Visez ce code avec l'appareil photo de votre téléphone</figcaption>
+        </figure>
+
+        <ol class="etapes">
+          <li class="etape">
+            <span class="etape__num">1</span>
+            <span class="etape__texte"><strong>Scannez</strong> le QR code avec votre téléphone</span>
+          </li>
+          <li class="etape">
+            <span class="etape__num">2</span>
+            <span class="etape__texte"><strong>Choisissez</strong> vos photos et envoyez-les</span>
+          </li>
+          <li class="etape">
+            <span class="etape__num">3</span>
+            <span class="etape__texte"><strong>Validez</strong> ici, puis récupérez votre code</span>
+          </li>
+        </ol>
+      </div>
+
+      <p class="attente" id="temoin-attente">
+        <span class="attente__point"></span> En attente de vos photos…
+      </p>
+    </section>
+
+    <!-- Étape 2 : personnalisation du tirage -->
+    <section id="etape-apercu" class="cache">
+      <div class="atelier">
+
+        <!-- Colonne gauche : aperçu -->
+        <div class="colonne-apercu">
+          <h1 class="titre titre--atelier" id="titre-apercu">Votre photo est prête&nbsp;!</h1>
+          <p class="sous-titre" id="sous-titre-apercu">
+            Choisissez le support, le format et la forme de votre création.
           </p>
-        </div>
 
-        <div class="atelier">
           <div class="scene">
+            <span class="scene__etiquette">Aperçu</span>
             <div class="scene__cadre">
               <div class="rendu" id="rendu">
-                <img id="photo-geante" alt="Dernière photo reçue">
+                <img id="photo-geante" alt="Photo à personnaliser">
               </div>
             </div>
             <p class="scene__legende" id="legende-photo"></p>
           </div>
 
-          <div class="options">
-            <fieldset class="choix">
-              <legend class="choix__titre">Matière</legend>
-              <div class="choix__liste" id="liste-matieres"></div>
-            </fieldset>
-
-            <fieldset class="choix" id="bloc-orientation">
-              <legend class="choix__titre">Orientation</legend>
-              <div class="choix__liste" id="liste-orientations"></div>
-              <p class="choix__note cache" id="note-orientation"></p>
-            </fieldset>
-
-            <fieldset class="choix">
-              <legend class="choix__titre">Dimensions <span class="choix__unite">en cm</span></legend>
-              <div class="choix__liste" id="liste-formats"></div>
-            </fieldset>
-
-            <fieldset class="choix" id="bloc-formes">
-              <legend class="choix__titre">Coupe</legend>
-              <div class="choix__liste" id="liste-formes"></div>
-              <p class="choix__note cache" id="note-forme"></p>
-            </fieldset>
-
-            <div class="prix" id="bloc-prix">
-              <span class="prix__legende">Prix de ce tirage</span>
-              <span class="prix__montant" id="prix-article">—</span>
-            </div>
-          </div>
+          <ul class="bande" id="bande-photos"></ul>
         </div>
 
-        <ul class="bande" id="bande-photos"></ul>
+        <!-- Colonne droite : les choix -->
+        <div class="colonne-choix">
+          <div class="carte carte--choix">
 
-        <div class="recap" id="recap-commande"></div>
+            <section class="bloc">
+              <h2 class="bloc__titre"><span class="bloc__num">1</span> Choisissez le support</h2>
+              <div class="grille-cartes" id="liste-matieres"></div>
+            </section>
 
-        <div class="actions" style="margin-top: 1.75rem">
-          <button class="bouton bouton--principal bouton--large" id="btn-valider" type="button">
-            Valider et obtenir mon code
-          </button>
-          <button class="bouton bouton--secondaire" id="btn-ajouter" type="button">
-            Ajouter d'autres photos
-          </button>
-          <button class="bouton bouton--discret" id="btn-annuler" type="button">
-            Tout annuler
-          </button>
-        </div>
-      </section>
+            <section class="bloc">
+              <h2 class="bloc__titre"><span class="bloc__num">2</span> Choisissez le format</h2>
+              <div class="segments" id="liste-orientations"></div>
+              <div class="grille-formats" id="liste-formats"></div>
 
-      <!-- Étape 3 : le code de retrait -->
-      <section id="etape-code" class="cache">
-        <div class="centre">
-          <h1 class="titre">Votre code de retrait</h1>
-          <p class="chapeau">
-            Communiquez ce code au poste d'impression pour récupérer vos photos.
-          </p>
-        </div>
-
-        <div class="carte">
-          <div class="ticket">
-            <div>
-              <span class="code__legende">Code à 4 chiffres</span>
-              <p class="code" id="affichage-code">····</p>
-              <p class="ligne__detail" id="resume-depot"></p>
-              <p class="total total--grand">
-                <span>Total à régler</span>
-                <strong id="total-commande">—</strong>
-              </p>
-              <div class="actions" style="justify-content: flex-start; margin-top: 1.25rem">
-                <button class="bouton bouton--principal" id="btn-recommencer" type="button">
-                  Nouveau dépôt
-                </button>
-                <a class="bouton bouton--secondaire" id="lien-recuperer" href="/recuperer">
-                  Ouvrir la page de retrait
-                </a>
+              <div class="sur-mesure cache" id="bloc-sur-mesure">
+                <label class="champ champ--court">
+                  <span class="champ__libelle">Largeur (cm)</span>
+                  <input type="number" id="mesure-largeur" inputmode="numeric">
+                </label>
+                <span class="sur-mesure__croix" aria-hidden="true">×</span>
+                <label class="champ champ--court">
+                  <span class="champ__libelle">Hauteur (cm)</span>
+                  <input type="number" id="mesure-hauteur" inputmode="numeric">
+                </label>
+                <p class="sur-mesure__aide" id="aide-sur-mesure"></p>
               </div>
-            </div>
-            <figure class="qr" style="margin: 0">
-              <img id="qr-paiement" alt="QR code de paiement">
-              <figcaption>
-                <strong>Scannez pour régler votre commande</strong><br>
-                Le paiement apparaîtra en direct à la réception.
-              </figcaption>
-              <span class="etat etat--attente" id="etat-paiement">
-                <span class="etat__point"></span> Paiement en attente
-              </span>
-            </figure>
+            </section>
+
+            <section class="bloc" id="bloc-formes">
+              <h2 class="bloc__titre"><span class="bloc__num">3</span> Choisissez la forme</h2>
+              <div class="grille-cartes grille-cartes--formes" id="liste-formes"></div>
+              <p class="bloc__note cache" id="note-forme"></p>
+            </section>
+
           </div>
-
-          <ul class="galerie" id="galerie-finale" style="margin-top: 1.75rem"></ul>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <p class="message message--erreur cache" id="message-erreur" style="margin-top: 1.25rem"></p>
-    </main>
+    <!-- Étape 3 : le code de retrait -->
+    <section id="etape-code" class="cache">
+      <div class="centre">
+        <h1 class="titre">Votre code de retrait</h1>
+        <p class="chapeau">
+          Communiquez ce code au poste d'impression pour récupérer vos photos.
+        </p>
+      </div>
 
-    <footer class="pied">
-      Symp's Kiosk · les dépôts sont supprimés automatiquement après
-      <span id="retention">24</span> h
-    </footer>
+      <div class="carte">
+        <div class="ticket">
+          <div>
+            <span class="code__legende">Code à 4 chiffres</span>
+            <p class="code" id="affichage-code">····</p>
+            <p class="ligne__detail" id="resume-depot"></p>
+            <p class="total total--grand">
+              <span>Total à régler</span>
+              <strong id="total-commande">—</strong>
+            </p>
+            <div class="actions" style="justify-content: flex-start; margin-top: 1.25rem">
+              <button class="bouton bouton--principal" id="btn-recommencer" type="button">
+                Nouveau dépôt
+              </button>
+              <a class="bouton bouton--secondaire" id="lien-recuperer" href="/recuperer">
+                Ouvrir la page de retrait
+              </a>
+            </div>
+          </div>
+          <figure class="qr" style="margin: 0">
+            <img id="qr-paiement" alt="QR code de paiement">
+            <figcaption>
+              <strong>Scannez pour régler votre commande</strong><br>
+              Le paiement apparaîtra en direct à la réception.
+            </figcaption>
+            <span class="etat etat--attente" id="etat-paiement">
+              <span class="etat__point"></span> Paiement en attente
+            </span>
+          </figure>
+        </div>
+
+        <ul class="galerie" id="galerie-finale" style="margin-top: 1.75rem"></ul>
+      </div>
+    </section>
+
+    <p class="message message--erreur cache" id="message-erreur"></p>
+  </main>
+
+  <!-- Barre de commande, collée en bas -->
+  <footer class="sommaire cache" id="sommaire">
+    <img class="sommaire__vignette" id="sommaire-vignette" alt="">
+    <div class="sommaire__infos">
+      <span class="sommaire__titre">Votre création</span>
+      <span class="sommaire__detail" id="sommaire-detail">—</span>
+    </div>
+    <div class="sommaire__prix">
+      <strong id="prix-article">—</strong>
+      <span class="sommaire__mention">Prix TTC</span>
+    </div>
+    <!-- Visible dès qu'il y a plusieurs photos : le client doit voir ce qu'il
+         va régler, pas seulement le tirage sous les yeux. -->
+    <div class="sommaire__prix sommaire__prix--total cache" id="bloc-total">
+      <strong id="total-panier">—</strong>
+      <span class="sommaire__mention" id="mention-total">Total</span>
+    </div>
+    <div class="sommaire__actions">
+      <button class="bouton bouton--secondaire" id="btn-ajouter" type="button">
+        Ajouter une photo
+      </button>
+      <button class="bouton bouton--discret" id="btn-annuler" type="button">Tout annuler</button>
+      <button class="bouton bouton--principal bouton--large" id="btn-valider" type="button">
+        Continuer <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Aide -->
+  <div class="voile cache" id="voile-aide">
+    <div class="editeur">
+      <div class="section__titre">
+        <h2>Comment ça marche&nbsp;?</h2>
+        <button class="bouton bouton--discret" id="aide-fermer" type="button">Fermer</button>
+      </div>
+      <ol class="etapes" style="margin-top: 1rem">
+        <li class="etape">
+          <span class="etape__num">1</span>
+          <span class="etape__texte">Scannez le QR code avec votre téléphone et envoyez vos photos.</span>
+        </li>
+        <li class="etape">
+          <span class="etape__num">2</span>
+          <span class="etape__texte">Choisissez le support, le format et la forme de chaque tirage.</span>
+        </li>
+        <li class="etape">
+          <span class="etape__num">3</span>
+          <span class="etape__texte">Validez : un code à 4 chiffres vous permet de retirer vos tirages.</span>
+        </li>
+      </ol>
+      <p class="bloc__note">Un souci ? Demandez au comptoir, nous sommes là pour vous aider.</p>
+    </div>
+  </div>
+
+  <!-- Éditeur de forme libre, ouvert depuis la carte « Libre » -->
+  <div class="voile cache" id="voile-forme">
+    <div class="editeur">
+      <div class="section__titre">
+        <h2>Dessinez votre forme</h2>
+        <button class="bouton bouton--discret" id="forme-fermer" type="button">Fermer</button>
+      </div>
+      <p class="bloc__note">
+        Touchez le cadre pour poser un point, glissez-le pour l'ajuster, touchez-le
+        à nouveau pour le retirer.
+      </p>
+      <div class="editeur__scene">
+        <svg id="forme-svg" viewBox="0 0 100 100" preserveAspectRatio="none"
+             role="application" aria-label="Contour de votre forme">
+          <image id="forme-photo" x="0" y="0" width="100" height="100"
+                 preserveAspectRatio="xMidYMid slice" opacity="0.5"></image>
+          <polygon id="forme-contour" points=""></polygon>
+          <g id="forme-points"></g>
+        </svg>
+      </div>
+      <div class="actions" style="margin-top: 1rem">
+        <button class="bouton bouton--secondaire" id="forme-coeur" type="button">Cœur</button>
+        <button class="bouton bouton--secondaire" id="forme-etoile" type="button">Étoile</button>
+        <button class="bouton bouton--discret" id="forme-vider" type="button">Tout effacer</button>
+      </div>
+      <p class="message message--erreur cache" id="forme-erreur" style="margin-top: 1rem"></p>
+      <div class="actions" style="margin-top: 1rem">
+        <button class="bouton bouton--principal bouton--large" id="forme-valider" type="button">
+          Utiliser cette forme
+        </button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/assets/borne.js"></script>

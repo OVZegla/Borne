@@ -45,42 +45,107 @@
           <input type="text" id="nom-boutique" maxlength="60" placeholder="Photo Studio Lyon">
         </label>
 
-        <div class="grille-deux">
-          <label class="champ">
+      </section>
+
+      <!-- Couleurs -->
+      <section class="carte section">
+        <div class="section__titre">
+          <h2>Vos couleurs</h2>
+          <div class="palettes" id="palettes"></div>
+        </div>
+        <p class="choix__note" style="margin-bottom: 1.25rem">
+          Tournez la roue pour choisir la teinte, le curseur règle la
+          luminosité. Tout le reste (surfaces, texte, traits) se déduit
+          automatiquement&nbsp;: un fond sombre bascule les pages en mode
+          sombre, sans jamais devenir illisible.
+        </p>
+
+        <div class="grille-couleurs">
+          <div class="couleur-bloc">
             <span class="champ__libelle">Couleur principale</span>
-            <span class="couleur">
-              <input type="color" id="couleur-primaire">
-              <input type="text" id="couleur-primaire-texte" maxlength="7" spellcheck="false">
-            </span>
-          </label>
-          <label class="champ">
+            <p class="couleur-bloc__note">Titres, boutons, code de retrait.</p>
+            <div id="roue-primaire"></div>
+          </div>
+          <div class="couleur-bloc">
             <span class="champ__libelle">Couleur d'accent</span>
-            <span class="couleur">
-              <input type="color" id="couleur-accent">
-              <input type="text" id="couleur-accent-texte" maxlength="7" spellcheck="false">
-            </span>
-          </label>
+            <p class="couleur-bloc__note">Sélections, liens, touches de couleur.</p>
+            <div id="roue-accent"></div>
+          </div>
+          <div class="couleur-bloc">
+            <span class="champ__libelle">Fond de page</span>
+            <p class="couleur-bloc__note">La couleur de l'écran de la borne.</p>
+            <div id="roue-fond"></div>
+          </div>
         </div>
 
-        <div class="champ">
-          <span class="champ__libelle">Votre logo</span>
-          <div class="logo-zone">
+        <div class="apercu-theme" id="apercu-theme">
+          <span class="apercu-theme__etiquette">Aperçu</span>
+          <div class="apercu-theme__scene">
+            <span class="apercu-theme__titre">Votre photo est prête !</span>
+            <span class="apercu-theme__texte">Choisissez le support et le format.</span>
+            <span class="apercu-theme__boutons">
+              <span class="apercu-theme__bouton">Continuer</span>
+              <span class="apercu-theme__bouton apercu-theme__bouton--clair">Annuler</span>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Logo -->
+      <section class="carte section">
+        <div class="section__titre"><h2>Votre logo</h2></div>
+
+        <div class="logo-zone">
+          <div class="logo-zone__cadre">
             <img id="apercu-logo" class="logo-zone__apercu cache" alt="Logo de la boutique">
             <span id="logo-vide" class="logo-zone__vide">Aucun logo</span>
+          </div>
+          <div class="logo-zone__corps">
             <div class="actions" style="justify-content: flex-start">
-              <button class="bouton bouton--secondaire" id="btn-logo" type="button">
-                Choisir un fichier
+              <button class="bouton bouton--principal" id="btn-logo" type="button">
+                Choisir un fichier…
               </button>
               <button class="bouton bouton--discret cache" id="btn-logo-suppr" type="button">
                 Retirer
               </button>
               <input type="file" id="champ-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="cache-champ">
             </div>
+            <p class="choix__note">
+              PNG, JPEG, SVG ou WebP, 2&nbsp;Mo maximum. Un fond transparent
+              donne le meilleur résultat.
+            </p>
           </div>
-          <p class="choix__note">
-            PNG, JPEG, SVG ou WebP, 2 Mo maximum. Votre logo s'affiche à côté de
-            celui de Symp's, qui reste présent sur toutes les pages.
-          </p>
+        </div>
+
+        <p class="choix__note" style="margin: 1.25rem 0 0.6rem">
+          Votre logo prend deux places&nbsp;: dans la barre du haut, à côté de la
+          signature Symp's qui reste présente sur toutes les pages, et en grand
+          sur l'écran d'attente de la borne.
+        </p>
+
+        <!-- Où le logo apparaît, dans les deux thèmes -->
+        <div class="places">
+          <div class="place">
+            <span class="place__nom">Barre du haut</span>
+            <div class="place__scene">
+              <img class="place__symps" src="/assets/logo-symps.svg" alt="Symp's">
+              <span class="place__texte">
+                <strong>Symp's Kiosk</strong>
+                <em id="place-nom">Borne</em>
+              </span>
+              <img class="place__boutique cache" id="place-logo-barre" alt="">
+              <span class="place__vide" id="place-vide-barre">votre logo</span>
+            </div>
+          </div>
+          <div class="place">
+            <span class="place__nom">Écran d'attente</span>
+            <div class="place__scene place__scene--accueil">
+              <img class="place__accueil cache" id="place-logo-accueil" alt="">
+              <span class="place__vide" id="place-vide-accueil">votre logo</span>
+              <strong class="place__titre">Scannez pour envoyer vos photos</strong>
+              <span class="place__faux-qr" aria-hidden="true"></span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -159,6 +224,53 @@
           rectangulaires.
         </p>
         <div class="tableau" id="tableau-formes"></div>
+      </section>
+
+      <!-- Options proposées au client sur la borne -->
+      <section class="carte section">
+        <div class="section__titre"><h2>Ce que le client peut demander</h2></div>
+
+        <div class="option">
+          <label class="bascule">
+            <input type="checkbox" id="sur-mesure-actif">
+            <span>Dimensions sur mesure</span>
+          </label>
+          <p class="choix__note">
+            Le client saisit lui-même la largeur et la hauteur de son tirage. Il
+            n'existe pas de prix de grille pour des dimensions quelconques&nbsp;:
+            un tirage sur mesure est <strong>toujours facturé au m²</strong> de
+            la matière, même si vous vendez au format le reste du temps.
+          </p>
+          <div class="option__reglages" id="reglages-sur-mesure">
+            <label class="champ champ--court">
+              <span class="champ__libelle">Côté minimum (cm)</span>
+              <input type="number" id="sur-mesure-min" min="1" max="1000" step="1">
+            </label>
+            <label class="champ champ--court">
+              <span class="champ__libelle">Côté maximum (cm)</span>
+              <input type="number" id="sur-mesure-max" min="1" max="1000" step="1">
+            </label>
+            <p class="exemple" id="exemple-sur-mesure" style="flex: 1 0 100%"></p>
+          </div>
+        </div>
+
+        <div class="option">
+          <label class="bascule">
+            <input type="checkbox" id="forme-libre-actif">
+            <span>Forme libre dessinée par le client</span>
+          </label>
+          <p class="choix__note">
+            Le client dessine son propre contour sur la borne, par-dessus sa
+            photo. À n'activer que si votre machine sait suivre un tracé
+            quelconque&nbsp;; sinon laissez vos coupes fixes ci-dessous.
+          </p>
+          <div class="option__reglages" id="reglages-forme-libre">
+            <label class="champ champ--court">
+              <span class="champ__libelle">Supplément (€)</span>
+              <input type="number" id="forme-libre-supplement" min="0" max="100000" step="0.5">
+            </label>
+          </div>
+        </div>
       </section>
 
       <!-- Éditeur de coupe -->

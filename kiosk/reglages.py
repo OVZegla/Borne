@@ -37,10 +37,30 @@ COULEUR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 DEFAUTS = {
     "boutique": {"nom": "", "logo": None},
-    "theme": {"primaire": "#00287E", "accent": "#3D6FE0"},
+    # Trois couleurs suffisent : le reste de la palette (surfaces, texte, traits)
+    # en est deduit, y compris le passage en clair ou en sombre selon le fond.
+    "theme": {"primaire": "#00287E", "accent": "#3D6FE0", "fond": "#F2F6FD"},
     "catalogue": {
         "tarification": "coefficient",
         "formes_actives": True,
+        # Les deux blocs ci-dessous sont les interrupteurs generaux de la
+        # boutique, et les valeurs par defaut de chaque matiere. Une matiere
+        # peut se retirer du jeu ou imposer ses propres bornes ; elle ne peut
+        # pas proposer une option que la boutique a coupee.
+        #
+        # Dimensions libres saisies par le client sur la borne. Toujours
+        # facturees au metre carre : c'est la seule regle qui tienne sans
+        # grille de prix.
+        "sur_mesure": {
+            "actif": False,
+            "min_cm": 10,
+            "max_cm": 120,
+        },
+        # Contour dessine par le client lui-meme.
+        "forme_libre": {
+            "actif": False,
+            "supplement": 12.0,
+        },
         "matieres": [
             {"cle": "plexiglas", "nom": "Plexiglas", "coefficient": 1.80, "prix_m2": 480.0, "decoupe": True},
             {"cle": "metal", "nom": "Métal", "coefficient": 1.90, "prix_m2": 505.0, "decoupe": True},
@@ -160,25 +180,23 @@ def _nombre(valeur, champ: str, mini: float, maxi: float) -> float:
     return round(nombre, 2)
 
 
+def _sous_ensemble(recu, connues: list[str]) -> list[str]:
+    """Liste de cles retenue par une matiere ; vide veut dire « toutes ».
+
+    Une entree supprimee du catalogue disparait d'elle-meme des matieres qui la
+    citaient ; s'il ne reste plus rien, la matiere revient a « toutes » plutot
+    que de bloquer l'enregistrement sur un reglage devenu caduc.
+    """
+    if not isinstance(recu, list):
+        return []
+    gardees = [cle for cle in connues if cle in set(map(str, recu))]
+    return [] if len(gardees) in (0, len(connues)) else gardees
+
+
 def _valider_catalogue(recu: dict) -> dict:
     matieres, formats, formes = [], [], []
 
     prises: set[str] = set()
-    for brut in recu.get("matieres") or []:
-        nom = _texte(brut.get("nom"), "Matière")
-        cle = str(brut.get("cle") or "").strip() or cle_depuis(nom, prises)
-        prises.add(cle)
-        matieres.append({
-            "cle": cle,
-            "nom": nom,
-            "coefficient": _nombre(brut.get("coefficient", 1), f"Matière « {nom} » (coefficient)", 0.01, 100),
-            "prix_m2": _nombre(brut.get("prix_m2", 0), f"Matière « {nom} » (prix au m²)", 0, 100000),
-            "decoupe": bool(brut.get("decoupe", True)),
-        })
-    if not matieres:
-        raise ReglageError("Il faut au moins une matière")
-
-    prises = set()
     for brut in recu.get("formats") or []:
         nom = _texte(brut.get("nom"), "Format", 30)
         cle = str(brut.get("cle") or "").strip() or cle_depuis(nom, prises)
@@ -220,12 +238,87 @@ def _valider_catalogue(recu: dict) -> dict:
     if tarification not in TARIFICATIONS:
         raise ReglageError("Mode de tarification inconnu")
 
+    sur_mesure = recu.get("sur_mesure") or {}
+    mini = int(_nombre(sur_mesure.get("min_cm", 10), "Sur mesure (minimum)", 1, 1000))
+    maxi = int(_nombre(sur_mesure.get("max_cm", 120), "Sur mesure (maximum)", 1, 1000))
+    if mini >= maxi:
+        raise ReglageError("Sur mesure : le minimum doit être inférieur au maximum")
+
+    libre = recu.get("forme_libre") or {}
+
+    # Les matieres viennent en dernier : chacune renvoie aux formats et aux
+    # coupes qu'on vient de valider, et herite des bornes generales.
+    cles_formats = [f["cle"] for f in formats]
+    cles_formes = [f["cle"] for f in formes]
+    prises = set()
+    for brut in recu.get("matieres") or []:
+        nom = _texte(brut.get("nom"), "Matière")
+        cle = str(brut.get("cle") or "").strip() or cle_depuis(nom, prises)
+        prises.add(cle)
+        matieres.append({
+            "cle": cle,
+            "nom": nom,
+            "coefficient": _nombre(brut.get("coefficient", 1), f"Matière « {nom} » (coefficient)", 0.01, 100),
+            "prix_m2": _nombre(brut.get("prix_m2", 0), f"Matière « {nom} » (prix au m²)", 0, 100000),
+            "decoupe": bool(brut.get("decoupe", True)),
+            # Vide = « tous », pour qu'un format ajoute plus tard soit propose
+            # partout sans avoir a rouvrir chaque matiere.
+            "formats": _sous_ensemble(brut.get("formats"), cles_formats),
+            "formes": _sous_ensemble(brut.get("formes"), cles_formes),
+            "sur_mesure": _valider_sur_mesure(brut.get("sur_mesure"), nom, mini, maxi),
+            "forme_libre": _valider_forme_libre(brut.get("forme_libre"), nom),
+        })
+    if not matieres:
+        raise ReglageError("Il faut au moins une matière")
+
     return {
         "tarification": tarification,
         "formes_actives": bool(recu.get("formes_actives", True)),
+        "sur_mesure": {
+            "actif": bool(sur_mesure.get("actif", False)),
+            "min_cm": mini,
+            "max_cm": maxi,
+        },
+        "forme_libre": {
+            "actif": bool(libre.get("actif", False)),
+            "supplement": _nombre(libre.get("supplement", 0), "Forme libre", 0, 100000),
+        },
         "matieres": matieres,
         "formats": formats,
         "formes": formes,
+    }
+
+
+def _valider_sur_mesure(recu, nom: str, mini_boutique: int, maxi_boutique: int) -> dict:
+    """Bornes propres a une matiere ; `None` veut dire « celles de la boutique ».
+
+    Le verre ne se coupe pas au-dela d'un certain format, le papier si : chaque
+    matiere doit pouvoir imposer sa propre limite de taille.
+    """
+    recu = recu if isinstance(recu, dict) else {}
+    resultat = {"actif": bool(recu.get("actif", True)), "min_cm": None, "max_cm": None}
+    for champ, general in (("min_cm", mini_boutique), ("max_cm", maxi_boutique)):
+        valeur = recu.get(champ)
+        if valeur in (None, ""):
+            continue
+        resultat[champ] = int(_nombre(valeur, f"Matière « {nom} » ({champ})", 1, 1000))
+    mini = resultat["min_cm"] if resultat["min_cm"] is not None else mini_boutique
+    maxi = resultat["max_cm"] if resultat["max_cm"] is not None else maxi_boutique
+    if mini >= maxi:
+        raise ReglageError(f"Matière « {nom} » : la taille minimum doit être inférieure au maximum")
+    return resultat
+
+
+def _valider_forme_libre(recu, nom: str) -> dict:
+    """Forme libre matiere par matiere ; supplement `None` = celui de la boutique."""
+    recu = recu if isinstance(recu, dict) else {}
+    supplement = recu.get("supplement")
+    return {
+        "actif": bool(recu.get("actif", True)),
+        "supplement": (
+            None if supplement in (None, "")
+            else _nombre(supplement, f"Matière « {nom} » (forme libre)", 0, 100000)
+        ),
     }
 
 

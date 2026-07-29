@@ -1,9 +1,11 @@
 /* Page d'administration : marque, catalogue, tarifs, encaissement. */
 
 import { $, api, element, marquerPageActive } from './commun.js';
+import { creerRoue } from './roue.js';
 
 let etat = null;
 let geometries = {};
+const roues = {};
 
 marquerPageActive();
 demarrer();
@@ -21,13 +23,26 @@ async function demarrer() {
 function remplir(recu) {
   etat = recu;
   $('#nom-boutique').value = recu.boutique.nom || '';
-  majCouleur('primaire', recu.theme.primaire);
-  majCouleur('accent', recu.theme.accent);
+  $('#place-nom').textContent = recu.boutique.nom || 'Borne';
+  installerCouleurs(recu.theme);
   majLogo(recu.boutique.logo);
 
   const mode = recu.catalogue.tarification || 'coefficient';
   $(`#mode-${mode}`).checked = true;
   majTarification();
+
+  recu.catalogue.sur_mesure = recu.catalogue.sur_mesure || { actif: false, min_cm: 10, max_cm: 120 };
+  recu.catalogue.forme_libre = recu.catalogue.forme_libre || { actif: false, supplement: 0 };
+
+  const mesure = recu.catalogue.sur_mesure;
+  $('#sur-mesure-actif').checked = Boolean(mesure.actif);
+  $('#sur-mesure-min').value = mesure.min_cm ?? 10;
+  $('#sur-mesure-max').value = mesure.max_cm ?? 120;
+
+  const libre = recu.catalogue.forme_libre;
+  $('#forme-libre-actif').checked = Boolean(libre.actif);
+  $('#forme-libre-supplement').value = libre.supplement ?? 0;
+  majOptions();
 
   $('#formes-actives').checked = Boolean(recu.catalogue.formes_actives);
   $('#mode-paiement').value = recu.paiement.mode || 'comptoir';
@@ -82,7 +97,7 @@ function majExemple() {
   const aire = (format.largeur / 100) * (format.hauteur / 100);
   const base = surface ? aire * (matiere.prix_m2 || 0) : (format.prix || 0) * (matiere.coefficient || 0);
   const detail = surface
-    ? `${format.largeur} × ${format.hauteur} cm = ${aire.toFixed(2)} m², × `
+    ? `${format.largeur} × ${format.hauteur} cm = ${decimal(aire)} m², × `
       + `${euros(matiere.prix_m2)}/m²`
     : `${euros(format.prix)} × ${matiere.coefficient}`;
 
@@ -100,35 +115,119 @@ function euros(valeur) {
   return `${Number(valeur || 0).toFixed(2).replace('.', ',')} €`;
 }
 
-/* --- marque ---------------------------------------------------------------- */
-
-function majCouleur(nom, valeur) {
-  $(`#couleur-${nom}`).value = valeur;
-  $(`#couleur-${nom}-texte`).value = valeur;
+function decimal(valeur, chiffres = 2) {
+  return Number(valeur || 0).toFixed(chiffres).replace('.', ',');
 }
 
-for (const nom of ['primaire', 'accent']) {
-  $(`#couleur-${nom}`).addEventListener('input', (e) => {
-    $(`#couleur-${nom}-texte`).value = e.target.value.toUpperCase();
-  });
-  $(`#couleur-${nom}-texte`).addEventListener('change', (e) => {
-    const valeur = e.target.value.trim();
-    if (/^#[0-9a-fA-F]{6}$/.test(valeur)) $(`#couleur-${nom}`).value = valeur;
-    else e.target.value = $(`#couleur-${nom}`).value;
-  });
+/* --- couleurs : trois roues et un aperçu vivant ------------------------------ */
+
+const TEINTES = ['primaire', 'accent', 'fond'];
+
+// Quelques accords tout prêts, pour partir de quelque chose plutôt que du bleu.
+const PALETTES = [
+  { nom: 'Symp\'s', primaire: '#00287E', accent: '#3D6FE0', fond: '#F2F6FD' },
+  { nom: 'Ardoise', primaire: '#8FA8FF', accent: '#5C7CFA', fond: '#12151C' },
+  { nom: 'Terre', primaire: '#7A3E1D', accent: '#C4703A', fond: '#FBF5EF' },
+  { nom: 'Forêt', primaire: '#14532D', accent: '#2F9E5E', fond: '#F1F8F3' },
+  { nom: 'Prune', primaire: '#4A1D5E', accent: '#9B5DE5', fond: '#F8F3FC' },
+];
+
+function installerCouleurs(theme) {
+  if (roues.primaire) {
+    for (const nom of TEINTES) roues[nom].definir(theme[nom]);
+    return majApercuTheme();
+  }
+  for (const nom of TEINTES) {
+    roues[nom] = creerRoue($(`#roue-${nom}`), {
+      valeur: theme[nom],
+      onChange: majApercuTheme,
+    });
+  }
+  $('#palettes').replaceChildren(
+    ...PALETTES.map((palette) =>
+      element(
+        'button',
+        {
+          class: 'palette', type: 'button', title: palette.nom,
+          style: `--a:${palette.primaire};--b:${palette.accent};--c:${palette.fond}`,
+          onclick: () => {
+            for (const nom of TEINTES) roues[nom].definir(palette[nom]);
+            majApercuTheme();
+          },
+        },
+        element('span', { class: 'palette__nom' }, palette.nom),
+      ),
+    ),
+  );
+  majApercuTheme();
+}
+
+function couleurs() {
+  return Object.fromEntries(TEINTES.map((nom) => [nom, roues[nom].valeur()]));
+}
+
+/** Luminosité perçue, même formule que le serveur : elle décide clair ou sombre. */
+function clarte(hexa) {
+  const [r, v, b] = [1, 3, 5].map((i) => parseInt(hexa.slice(i, i + 2), 16));
+  return (r * 299 + v * 587 + b * 114) / 255000;
+}
+
+function melanger(hexa, vers, part) {
+  const canaux = [1, 3, 5].map((i) => parseInt(hexa.slice(i, i + 2), 16));
+  return `#${canaux.map((c) => Math.round(c + (vers - c) * part).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** L'aperçu applique les mêmes règles que la feuille générée par le serveur. */
+function majApercuTheme() {
+  const { primaire, accent, fond } = couleurs();
+  const sombre = clarte(fond) < 0.5;
+  const scene = $('#apercu-theme');
+  scene.style.setProperty('--a-fond', fond);
+  scene.style.setProperty('--a-surface', sombre ? melanger(fond, 255, 0.1) : '#ffffff');
+  scene.style.setProperty('--a-encre', sombre ? '#f4f7ff' : melanger(primaire, 0, 0.84));
+  scene.style.setProperty('--a-gris', melanger(sombre ? fond : primaire, 255, sombre ? 0.62 : 0.55));
+  scene.style.setProperty('--a-bordure', melanger(accent, sombre ? 0 : 255, sombre ? 0.6 : 0.82));
+  scene.style.setProperty('--a-primaire', sombre ? melanger(primaire, 255, 0.3) : primaire);
+  scene.style.setProperty('--a-accent', accent);
+  scene.dataset.sombre = String(sombre);
+
+  // Les deux aperçus de place reprennent le même thème, et la signature Symp's
+  // y passe en blanc dès que le fond est sombre — comme sur la borne.
+  for (const place of document.querySelectorAll('.place__scene')) {
+    place.style.setProperty('--a-fond', sombre ? melanger(fond, 255, 0.06) : '#ffffff');
+    place.style.setProperty('--a-encre', sombre ? '#f4f7ff' : melanger(primaire, 0, 0.84));
+    place.style.setProperty('--a-gris', melanger(sombre ? fond : primaire, 255, sombre ? 0.62 : 0.55));
+    place.style.setProperty('--a-bordure', melanger(accent, sombre ? 0 : 255, sombre ? 0.6 : 0.82));
+    place.style.setProperty('--a-primaire', sombre ? melanger(primaire, 255, 0.3) : primaire);
+    place.style.setProperty('--a-filtre', sombre ? 'brightness(0) invert(1)' : 'none');
+    place.style.setProperty('--a-plaque', sombre ? '#ffffff' : 'transparent');
+    place.style.setProperty('--a-marge', sombre ? '3px 5px' : '0');
+  }
 }
 
 function majLogo(nom) {
   const present = Boolean(nom);
-  $('#apercu-logo').classList.toggle('cache', !present);
+  const adresse = `/logo-boutique?t=${Date.now()}`;
+
   $('#logo-vide').classList.toggle('cache', present);
   $('#btn-logo-suppr').classList.toggle('cache', !present);
-  if (present) $('#apercu-logo').src = `/logo-boutique?t=${Date.now()}`;
-  const entete = $('#logo-boutique');
-  entete.classList.toggle('cache', !present);
-  if (present) entete.src = `/logo-boutique?t=${Date.now()}`;
-  else entete.removeAttribute('src');
+
+  // Toutes les places où le logo de la boutique apparaît, plus les deux aperçus.
+  for (const cible of ['#apercu-logo', '#logo-boutique', '#place-logo-barre', '#place-logo-accueil']) {
+    const image = $(cible);
+    if (!image) continue;
+    image.classList.toggle('cache', !present);
+    if (present) image.src = adresse;
+    else image.removeAttribute('src');
+  }
+  for (const vide of ['#place-vide-barre', '#place-vide-accueil']) {
+    $(vide)?.classList.toggle('cache', present);
+  }
 }
+
+$('#nom-boutique').addEventListener('input', (e) => {
+  $('#place-nom').textContent = e.target.value.trim() || 'Borne';
+});
 
 $('#btn-logo').addEventListener('click', () => $('#champ-logo').click());
 
@@ -183,41 +282,208 @@ function saisie(valeur, options = {}) {
   return element('input', { value: valeur, ...options });
 }
 
+/* Une matière n'est pas qu'un prix : c'est aussi la liste des tailles qu'on sait
+   produire dedans, les coupes que la machine accepte, et les limites du sur-mesure.
+   Tout cela vit dans un volet dépliable, pour que le tableau reste lisible. */
+
+const deplies = new Set();
+
 function dessinerMatieres() {
-  const lignes = etat.catalogue.matieres.map((m, i) =>
-    ligne(
-      [
-        cellule('Nom', saisie(m.nom, {
-          type: 'text', maxlength: 60,
-          oninput: (e) => { m.nom = e.target.value; },
-        })),
-        modeActuel() === 'surface'
-          ? cellule('Prix au m² (€)', saisie(m.prix_m2, {
-              type: 'number', step: '5', min: '0',
-              oninput: (e) => { m.prix_m2 = Number(e.target.value); majExemple(); },
-            }))
-          : cellule('Coefficient', saisie(m.coefficient, {
-              type: 'number', step: '0.05', min: '0.01',
-              oninput: (e) => { m.coefficient = Number(e.target.value); majExemple(); },
-            })),
-        element('label', { class: 'tableau__cellule tableau__cellule--case' }, [
-          element('input', {
-            type: 'checkbox', checked: m.decoupe ? '' : null,
-            onchange: (e) => { m.decoupe = e.target.checked; },
-          }),
-          element('span', {}, 'Se découpe'),
-        ]),
-      ],
-      () => {
-        if (etat.catalogue.matieres.length <= 1) {
-          return afficherErreur('Il faut garder au moins une matière.');
-        }
-        etat.catalogue.matieres.splice(i, 1);
-        dessinerMatieres();
-      },
-    ),
-  );
+  const lignes = etat.catalogue.matieres.flatMap((m, i) => {
+    normaliserMatiere(m);
+    const ouvert = deplies.has(i);
+    return [
+      ligne(
+        [
+          cellule('Nom', saisie(m.nom, {
+            type: 'text', maxlength: 60,
+            oninput: (e) => { m.nom = e.target.value; majExemple(); },
+          })),
+          modeActuel() === 'surface'
+            ? cellule('Prix au m² (€)', saisie(m.prix_m2, {
+                type: 'number', step: '5', min: '0',
+                oninput: (e) => { m.prix_m2 = Number(e.target.value); majExemple(); },
+              }))
+            : cellule('Coefficient', saisie(m.coefficient, {
+                type: 'number', step: '0.05', min: '0.01',
+                oninput: (e) => { m.coefficient = Number(e.target.value); majExemple(); },
+              })),
+          element('div', { class: 'tableau__cellule tableau__cellule--case' }, [
+            element('button', {
+              class: `bouton bouton--secondaire replier${ouvert ? ' replier--ouvert' : ''}`,
+              type: 'button',
+              onclick: () => {
+                if (ouvert) deplies.delete(i); else deplies.add(i);
+                dessinerMatieres();
+              },
+            }, [
+              element('span', { class: 'replier__fleche', 'aria-hidden': 'true' }, '▸'),
+              resumeMatiere(m),
+            ]),
+          ]),
+        ],
+        () => {
+          if (etat.catalogue.matieres.length <= 1) {
+            return afficherErreur('Il faut garder au moins une matière.');
+          }
+          etat.catalogue.matieres.splice(i, 1);
+          deplies.clear();
+          dessinerMatieres();
+        },
+      ),
+      ouvert ? voletMatiere(m) : null,
+    ].filter(Boolean);
+  });
   $('#tableau-matieres').replaceChildren(...lignes);
+}
+
+/** Une entrée supprimée du catalogue disparaît des matières qui la citaient. */
+function elaguer(champ, cle) {
+  for (const m of etat.catalogue.matieres) {
+    if (Array.isArray(m[champ])) m[champ] = m[champ].filter((x) => x !== cle);
+  }
+  dessinerMatieres();
+}
+
+/** Complète une matière venue d'un ancien fichier de réglages. */
+function normaliserMatiere(m) {
+  if (!Array.isArray(m.formats)) m.formats = [];
+  if (!Array.isArray(m.formes)) m.formes = [];
+  if (!m.sur_mesure) m.sur_mesure = { actif: true, min_cm: null, max_cm: null };
+  if (!m.forme_libre) m.forme_libre = { actif: true, supplement: null };
+}
+
+function resumeMatiere(m) {
+  const total = etat.catalogue.formats.length;
+  const morceaux = [m.formats.length ? `${m.formats.length}/${total} tailles` : 'toutes tailles'];
+  if (!m.decoupe) morceaux.push('sans découpe');
+  else if (m.formes.length) morceaux.push(`${m.formes.length} coupes`);
+  if (etat.catalogue.sur_mesure?.actif && m.sur_mesure.actif) morceaux.push('sur mesure');
+  if (etat.catalogue.forme_libre?.actif && m.forme_libre.actif && m.decoupe) {
+    morceaux.push('forme libre');
+  }
+  return element('span', {}, morceaux.join(' · '));
+}
+
+/** Cases à cocher : rien de coché veut dire « tout », et c'est ce qu'on affiche. */
+function casesSousEnsemble(entrees, choisies, surChangement) {
+  const tout = choisies.length === 0;
+  return element('div', { class: 'cases' }, entrees.map((entree) =>
+    element('label', { class: 'case' }, [
+      element('input', {
+        type: 'checkbox',
+        checked: tout || choisies.includes(entree.cle) ? '' : null,
+        onchange: (e) => {
+          let suite = tout ? entrees.map((x) => x.cle) : [...choisies];
+          suite = e.target.checked
+            ? [...new Set([...suite, entree.cle])]
+            : suite.filter((cle) => cle !== entree.cle);
+          if (!suite.length) {
+            e.target.checked = true;
+            return afficherErreur('Gardez au moins une entrée pour cette matière.');
+          }
+          surChangement(suite.length === entrees.length ? [] : suite);
+        },
+      }),
+      element('span', {}, entree.nom),
+    ]),
+  ));
+}
+
+function voletMatiere(m) {
+  const mesureOuverte = Boolean(etat.catalogue.sur_mesure?.actif);
+  const libreOuverte = Boolean(etat.catalogue.forme_libre?.actif);
+
+  return element('div', { class: 'volet' }, [
+    element('div', { class: 'volet__bloc' }, [
+      element('span', { class: 'volet__titre' }, `Tailles proposées en ${m.nom || 'cette matière'}`),
+      casesSousEnsemble(etat.catalogue.formats, m.formats, (suite) => {
+        m.formats = suite;
+        dessinerMatieres();
+      }),
+    ]),
+
+    element('div', { class: 'volet__bloc' }, [
+      element('span', { class: 'volet__titre' }, 'Découpe'),
+      element('label', { class: 'bascule' }, [
+        element('input', {
+          type: 'checkbox', checked: m.decoupe ? '' : null,
+          onchange: (e) => { m.decoupe = e.target.checked; dessinerMatieres(); },
+        }),
+        element('span', {}, 'Cette matière peut être découpée'),
+      ]),
+      m.decoupe
+        ? casesSousEnsemble(etat.catalogue.formes, m.formes, (suite) => {
+            m.formes = suite;
+            dessinerMatieres();
+          })
+        : element('p', { class: 'choix__note' },
+            'Les tirages resteront rectangulaires dans cette matière.'),
+    ]),
+
+    element('div', { class: 'volet__bloc' }, [
+      element('span', { class: 'volet__titre' }, 'Sur mesure'),
+      mesureOuverte
+        ? element('div', {}, [
+            element('label', { class: 'bascule' }, [
+              element('input', {
+                type: 'checkbox', checked: m.sur_mesure.actif ? '' : null,
+                onchange: (e) => { m.sur_mesure.actif = e.target.checked; dessinerMatieres(); },
+              }),
+              element('span', {}, 'Proposer les dimensions libres pour cette matière'),
+            ]),
+            m.sur_mesure.actif
+              ? element('div', { class: 'volet__champs' }, [
+                  champLimite('Taille mini (cm)', m.sur_mesure.min_cm,
+                    etat.catalogue.sur_mesure.min_cm, (v) => { m.sur_mesure.min_cm = v; }),
+                  champLimite('Taille maxi (cm)', m.sur_mesure.max_cm,
+                    etat.catalogue.sur_mesure.max_cm, (v) => { m.sur_mesure.max_cm = v; }),
+                ])
+              : null,
+          ])
+        : element('p', { class: 'choix__note' },
+            'Le sur-mesure est coupé pour toute la boutique, plus haut dans la page.'),
+    ]),
+
+    element('div', { class: 'volet__bloc' }, [
+      element('span', { class: 'volet__titre' }, 'Forme libre'),
+      libreOuverte && m.decoupe
+        ? element('div', {}, [
+            element('label', { class: 'bascule' }, [
+              element('input', {
+                type: 'checkbox', checked: m.forme_libre.actif ? '' : null,
+                onchange: (e) => { m.forme_libre.actif = e.target.checked; dessinerMatieres(); },
+              }),
+              element('span', {}, 'Laisser le client dessiner son contour'),
+            ]),
+            m.forme_libre.actif
+              ? element('div', { class: 'volet__champs' }, [
+                  champLimite('Supplément (€)', m.forme_libre.supplement,
+                    etat.catalogue.forme_libre.supplement,
+                    (v) => { m.forme_libre.supplement = v; }, '0.5'),
+                ])
+              : null,
+          ])
+        : element('p', { class: 'choix__note' }, m.decoupe
+            ? 'La forme libre est coupée pour toute la boutique, plus haut dans la page.'
+            : 'Impossible sans découpe.'),
+    ]),
+  ]);
+}
+
+/** Champ facultatif : laissé vide, il reprend la valeur générale de la boutique. */
+function champLimite(libelle, valeur, defaut, surSaisie, pas = '1') {
+  return element('label', { class: 'champ champ--court' }, [
+    element('span', { class: 'champ__libelle' }, libelle),
+    element('input', {
+      type: 'number', min: '0', step: pas,
+      value: valeur === null || valeur === undefined ? '' : valeur,
+      placeholder: `${defaut} (boutique)`,
+      oninput: (e) => {
+        surSaisie(e.target.value === '' ? null : Number(e.target.value));
+      },
+    }),
+  ]);
 }
 
 function dessinerFormats() {
@@ -247,7 +513,8 @@ function dessinerFormats() {
         if (etat.catalogue.formats.length <= 1) {
           return afficherErreur('Il faut garder au moins un format.');
         }
-        etat.catalogue.formats.splice(i, 1);
+        const [parti] = etat.catalogue.formats.splice(i, 1);
+        elaguer('formats', parti.cle);
         dessinerFormats();
       },
     ),
@@ -296,7 +563,8 @@ function dessinerFormes() {
             'Le tirage rectangulaire ne peut pas être supprimé : c\'est le tirage sans découpe.',
           );
         }
-        etat.catalogue.formes.splice(i, 1);
+        const [partie] = etat.catalogue.formes.splice(i, 1);
+        elaguer('formes', partie.cle);
         dessinerFormes();
       },
     );
@@ -305,7 +573,12 @@ function dessinerFormes() {
 }
 
 $('#btn-ajout-matiere').addEventListener('click', () => {
-  etat.catalogue.matieres.push({ cle: '', nom: '', coefficient: 1, decoupe: true });
+  etat.catalogue.matieres.push({
+    cle: '', nom: '', coefficient: 1, prix_m2: 0, decoupe: true,
+    formats: [], formes: [],
+    sur_mesure: { actif: true, min_cm: null, max_cm: null },
+    forme_libre: { actif: true, supplement: null },
+  });
   dessinerMatieres();
 });
 
@@ -320,6 +593,50 @@ $('#btn-ajout-forme').addEventListener('click', () => {
 });
 
 
+
+/* --- options proposées au client -------------------------------------------- */
+
+for (const id of ['#sur-mesure-actif', '#forme-libre-actif']) {
+  $(id).addEventListener('change', majOptions);
+}
+for (const id of ['#sur-mesure-min', '#sur-mesure-max', '#forme-libre-supplement']) {
+  $(id).addEventListener('input', () => {
+    if (!etat) return;
+    etat.catalogue.sur_mesure.min_cm = Number($('#sur-mesure-min').value);
+    etat.catalogue.sur_mesure.max_cm = Number($('#sur-mesure-max').value);
+    etat.catalogue.forme_libre.supplement = Number($('#forme-libre-supplement').value);
+    majExempleSurMesure();
+    dessinerMatieres(); // les valeurs générales servent de repère aux matières
+  });
+}
+
+function majOptions() {
+  $('#reglages-sur-mesure').classList.toggle('cache', !$('#sur-mesure-actif').checked);
+  $('#reglages-forme-libre').classList.toggle('cache', !$('#forme-libre-actif').checked);
+  if (etat) {
+    etat.catalogue.sur_mesure.actif = $('#sur-mesure-actif').checked;
+    etat.catalogue.forme_libre.actif = $('#forme-libre-actif').checked;
+    dessinerMatieres();
+  }
+  majExempleSurMesure();
+}
+
+/** Le sur-mesure se facture au m² : autant le montrer noir sur blanc. */
+function majExempleSurMesure() {
+  if (!etat || !$('#sur-mesure-actif').checked) return;
+  const matiere = etat.catalogue.matieres[0];
+  const cote = Number($('#sur-mesure-max').value) || 0;
+  if (!matiere || !cote) return ($('#exemple-sur-mesure').textContent = '');
+  const aire = (cote / 100) * (cote / 100);
+  $('#exemple-sur-mesure').replaceChildren(
+    element('span', { class: 'exemple__etiquette' }, 'Exemple'),
+    element('span', {}, [
+      element('strong', {}, `${matiere.nom} en ${cote} × ${cote} cm`),
+      ` : ${decimal(aire)} m² × ${euros(matiere.prix_m2)}/m² = `,
+      element('strong', { class: 'exemple__prix' }, euros(aire * (matiere.prix_m2 || 0))),
+    ]),
+  );
+}
 
 /* --- encaissement ----------------------------------------------------------- */
 
@@ -338,13 +655,19 @@ $('#btn-enregistrer').addEventListener('click', async () => {
 
   const charge = {
     boutique: { nom: $('#nom-boutique').value },
-    theme: {
-      primaire: $('#couleur-primaire').value,
-      accent: $('#couleur-accent').value,
-    },
+    theme: couleurs(),
     catalogue: {
       tarification: modeActuel(),
       formes_actives: $('#formes-actives').checked,
+      sur_mesure: {
+        actif: $('#sur-mesure-actif').checked,
+        min_cm: Number($('#sur-mesure-min').value),
+        max_cm: Number($('#sur-mesure-max').value),
+      },
+      forme_libre: {
+        actif: $('#forme-libre-actif').checked,
+        supplement: Number($('#forme-libre-supplement').value),
+      },
       matieres: etat.catalogue.matieres,
       formats: etat.catalogue.formats,
       formes: etat.catalogue.formes,

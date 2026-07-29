@@ -38,14 +38,22 @@ class Article:
     forme: str
     prix: float
     orientation: str = catalogue.PORTRAIT
+    mesures: list | None = None   # dimensions sur mesure, en cm
+    points: list | None = None    # contour dessine par le client
+
+    @property
+    def _mesures(self) -> tuple[int, int] | None:
+        return tuple(self.mesures) if self.mesures else None
 
     def public(self) -> dict:
         data = asdict(self)
         try:
             data["libelle"] = catalogue.libelle(
-                self.matiere, self.format, self.forme, self.orientation
+                self.matiere, self.format, self.forme, self.orientation, self._mesures
             )
-            largeur, hauteur = catalogue.dimensions(self.format, self.orientation)
+            largeur, hauteur = catalogue.dimensions(
+                self.format, self.orientation, self._mesures
+            )
             data["largeur"], data["hauteur"] = largeur, hauteur
         except (KeyError, catalogue.CatalogueError):
             # La boutique a pu retirer cette matiere ou ce format depuis la commande.
@@ -302,6 +310,8 @@ class Store:
         format_: str,
         forme: str,
         orientation: str = catalogue.PORTRAIT,
+        mesures: list | None = None,
+        points: list | None = None,
     ) -> Image:
         """Choisit le tirage d'une photo et calcule son prix."""
         with self._lock:
@@ -315,14 +325,17 @@ class Store:
             if image is None:
                 raise StorageError("Photo introuvable dans cette session")
 
+            couple = tuple(mesures) if mesures else None
             try:
-                montant = catalogue.prix(matiere, format_, forme, orientation)
+                montant = catalogue.prix(matiere, format_, forme, orientation, couple, points)
             except catalogue.CatalogueError as exc:
                 raise StorageError(str(exc)) from exc
 
             image.article = Article(
                 matiere=matiere, format=format_, forme=forme,
                 prix=montant, orientation=orientation,
+                mesures=list(couple) if couple else None,
+                points=points if forme == catalogue.FORME_LIBRE else None,
             )
             self._save()
             return image

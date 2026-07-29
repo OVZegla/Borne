@@ -105,37 +105,53 @@ Pour arrêter la borne : `Ctrl+C` dans la fenêtre du Terminal.
 Laissez `http://localhost:8080` ouvert en plein écran. La page affiche en
 permanence le QR code d'envoi et attend les photos.
 
-Dès qu'une photo arrive, la borne bascule automatiquement dessus et l'affiche en
-grand, avec les options de tirage à côté :
+Une barre en haut suit le parcours en **trois étapes** — Photo, Personnalisation,
+Validation — pour que le client sache toujours où il en est.
 
-- **Matière** — Plexiglas, Métal, Dibond, Toile, Cadre, Papier, Bois, Verre
-- **Dimensions** — 25×30, 30×40, 40×50, 40×60, 50×70, 20×20, 30×30, 40×40, 50×50 cm
-- **Orientation** — portrait ou paysage, **présélectionnée d'après la photo**
-- **Coupe** — Format initial, Diamant, Triangle, Cercle
+Dès qu'une photo arrive, la borne bascule automatiquement dessus : l'aperçu
+occupe la moitié gauche de l'écran, les choix sont numérotés à droite.
+
+1. **Le support** — Plexiglas, Métal, Dibond, Toile, Cadre, Papier, Bois, Verre
+2. **Le format** — 25×30, 30×40, 40×50, 40×60, 50×70, 20×20, 30×30, 40×40,
+   50×50 cm, plus **Sur mesure** si la boutique le propose ; et l'orientation,
+   portrait ou paysage, **présélectionnée d'après la photo**
+3. **La forme** — Format initial, Diamant, Triangle, Cercle, plus **Libre** si la
+   boutique laisse le client dessiner son contour
+
+**Les listes suivent le support choisi** : chaque matière a ses tailles, ses
+coupes et ses limites de taille propres (voir « Personnaliser la boutique »).
+Changer de support recompose aussitôt les deux listes suivantes, et un choix
+devenu impossible est abandonné plutôt que gardé en silence.
 
 L'aperçu prend les proportions du format choisi, son orientation et la découpe
-demandée : le client voit le tirage tel qu'il sera, recadrage compris. Le prix
-s'actualise à chaque changement, et l'orientation ne le change jamais.
+demandée : le client voit le tirage tel qu'il sera, recadrage compris. Un damier
+très pâle montre ce que la découpe retire. Le prix s'actualise à chaque
+changement, et l'orientation ne le change jamais.
 
 > **L'orientation évite le mauvais recadrage** : une photo paysage bascule
 > d'elle-même sur un cadre paysage. Un format carré n'a pas d'orientation, le
 > choix disparaît alors.
 
-> **Une matière qui ne se découpe pas** (une toile sur châssis) ramène la coupe
-> au rectangle. Les autres se grisent, et le serveur refuse la combinaison même
-> si on la force.
+> **Une matière qui ne se découpe pas** (une toile sur châssis) fait disparaître
+> le menu des coupes, avec un mot d'explication. Le serveur refuse la
+> combinaison même si on la force.
 
 Ces listes sont celles livrées par défaut : chaque boutique compose les siennes
 dans les **réglages**.
 
 Avec plusieurs photos, une bande de vignettes permet de passer de l'une à
 l'autre ; celles dont le tirage n'est pas encore choisi ont un contour orange.
-Un récapitulatif chiffré s'affiche sous la bande. Trois boutons :
 
-- **Valider et obtenir mon code** — actif seulement quand chaque photo a son
-  tirage ; clôture le dépôt, révèle le code et le QR de paiement
-- **Ajouter d'autres photos** — revient au QR code, la session reste ouverte
+Une **barre de commande** reste collée en bas de l'écran : la vignette du tirage
+en cours, son détail, son prix, le **total du dépôt** dès qu'il y a plus d'une
+photo, et trois boutons :
+
+- **Continuer** — actif seulement quand chaque photo a son tirage ; clôture le
+  dépôt, révèle le code et le QR de paiement
+- **Ajouter une photo** — revient au QR code, la session reste ouverte
 - **Tout annuler** — supprime les photos reçues et repart à zéro
+
+Un bouton **Besoin d'aide ?** rappelle les trois étapes à tout moment.
 
 ### Sur le téléphone du client
 
@@ -308,24 +324,70 @@ coupure Internet empêche la boutique de vendre.
 La page **Réglages** (`/reglages`) appartient au commerçant. Tout ce qui s'y
 trouve s'applique aussitôt sur tous les postes :
 
-- **Marque** — nom de la boutique, couleur principale, couleur d'accent, et son
-  logo. Celui de Symp's et la mention « Symp's Kiosk » restent présents à côté,
-  sur toutes les pages.
+- **Marque** — nom de la boutique et son logo.
+- **Couleurs** — trois **roues chromatiques** : couleur principale, couleur
+  d'accent, fond de page. Tournez la roue pour la teinte, le curseur pour la
+  luminosité, ou tapez le code hexadécimal. Le reste de la palette (surfaces,
+  texte, traits) s'en déduit, **y compris le passage en mode nuit** dès que le
+  fond choisi est sombre : le texte s'éclaircit, la signature Symp's passe en
+  blanc, et rien ne devient illisible. Cinq accords tout prêts servent de point
+  de départ, et un aperçu montre le résultat avant d'enregistrer.
 - **Tarification** — deux façons de fixer vos prix, avec un exemple chiffré qui
   s'actualise sous vos yeux :
   - **un prix par format**, multiplié par un **coefficient** propre à chaque
     matière (coefficient 1 = prix du format, 1,5 = moitié plus cher, 2 = double) ;
   - **un prix au m²** par matière, le tarif se calculant depuis les dimensions.
     Plus simple à tenir : un nouveau format n'a pas besoin de prix.
-- **Matières** — librement créées : un nom, son tarif, et le fait qu'elles se
-  découpent ou non. Rien n'est imposé.
+- **Matières** — librement créées, et **chacune se règle séparément** (voir plus
+  bas) : son tarif, les tailles qu'elle propose, les coupes qu'elle accepte, son
+  droit au sur-mesure et à la forme libre.
 - **Formats** — librement créés : nom, largeur, hauteur. Saisissez-les en
   portrait, le client choisit lui-même portrait ou paysage.
 - **Coupes** — librement créées : un nom maison (« Hublot »…), un supplément, et
   soit une géométrie toute faite, soit **une forme que vous dessinez vous-même**.
   **Une case unique supprime tout le menu** pour une boutique sans machine de
   découpe : le serveur refuse alors toute découpe, même forcée par l'API.
+- **Ce que le client peut demander** — deux options que la boutique ouvre ou
+  ferme : les **dimensions sur mesure** et la **forme libre** dessinée par le
+  client sur la borne.
 - **Encaissement** — au comptoir, ou vers votre propre lien de paiement.
+
+### Chaque matière a ses propres règles
+
+Le verre ne se coupe pas comme le papier, et ne se produit pas dans les mêmes
+tailles. Le bouton au bout de chaque ligne de matière ouvre son volet :
+
+- **les tailles proposées** — cochez celles que vous savez produire dans cette
+  matière ; tout coché veut dire « toutes », y compris les formats ajoutés plus
+  tard ;
+- **la découpe** — cette matière se découpe ou non, et si oui, **quelles coupes**
+  parmi les vôtres ;
+- **le sur-mesure** — activé ou non pour cette matière, avec sa **propre limite
+  de taille** (côté minimum et côté maximum en cm). Laissés vides, ces deux
+  champs reprennent les limites générales de la boutique : vous ne réglez que
+  les exceptions ;
+- **la forme libre** — autorisée ou non pour cette matière, avec son propre
+  supplément.
+
+Les interrupteurs généraux passent avant : ce que la boutique a coupé, aucune
+matière ne peut le rouvrir. Sur la borne, changer de support recompose aussitôt
+la liste des tailles et des coupes, et le serveur revérifie tout à
+l'enregistrement — une combinaison interdite est refusée même forcée par l'API.
+
+### Dimensions sur mesure
+
+Le client saisit lui-même la largeur et la hauteur. Comme il n'existe aucun prix
+de grille pour des dimensions quelconques, **un tirage sur mesure est toujours
+facturé au m²** de la matière, même si la boutique vend au format le reste du
+temps. Les bornes de taille sont contrôlées deux fois : sur la borne pour guider
+le client, et sur le serveur pour que rien ne passe en force.
+
+### Forme libre
+
+Le client dessine son propre contour sur la borne, par-dessus sa photo affichée
+en transparence. À n'activer que si la machine sait suivre un tracé quelconque.
+Le contour demande au moins trois points, et le supplément s'ajoute au prix du
+tirage nu.
 
 ### Dessiner une coupe
 
@@ -338,7 +400,23 @@ borne.
 Cet éditeur n'existe **que dans les réglages** : le client de la boutique, lui,
 choisit seulement parmi les coupes proposées.
 
-## Remplacer le logo
+## Le logo de la boutique
+
+La boutique **téléverse son logo** depuis la page Réglages (PNG, JPEG, SVG ou
+WebP, 2 Mo maximum ; un fond transparent donne le meilleur résultat). Deux
+places lui sont réservées :
+
+- **dans la barre du haut**, à côté de la signature Symp's et de la mention
+  « Symp's Kiosk », qui restent présentes sur toutes les pages ;
+- **en grand sur l'écran d'attente de la borne**, celui que les clients voient
+  le plus longtemps.
+
+Les réglages montrent ces deux places, avec ou sans logo, dans le thème choisi.
+En mode nuit, la signature Symp's passe en blanc sur fond transparent, et le
+logo de la boutique reçoit une plaque claire — la plupart des logos sont dessinés
+pour du papier blanc.
+
+## Remplacer le logo Symp's
 
 L'en-tête de toutes les pages affiche `web/assets/logo-symps.svg`. Ce fichier est
 une **reconstitution vectorielle** de la signature Symp's : les deux crochets

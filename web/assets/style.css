@@ -15,6 +15,7 @@
   --bordure: #d7e1f4;
   --surface: #ffffff;
   --fond: #f2f6fd;
+  --halo: #dce7fb; /* nuage colore derriere l'entete, derive du fond */
 
   --succes: #0f7a4d;
   --alerte: #b3261e;
@@ -40,8 +41,9 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
   color: var(--encre);
   background:
-    radial-gradient(1200px 600px at 50% -280px, var(--bleu-100), transparent 70%),
+    radial-gradient(1200px 600px at 50% -280px, var(--halo), transparent 70%),
     var(--fond);
+  background-attachment: fixed;
   line-height: 1.55;
 }
 
@@ -70,11 +72,14 @@ body {
   color: inherit;
 }
 
-/* Signature de marque : largeur libre, hauteur calee sur le texte a cote. */
+/* Signature de marque : largeur libre, hauteur calee sur le texte a cote.
+   En theme sombre la feuille generee la passe en blanc sur fond transparent,
+   plutot que de la poser sur une plaque. */
 .marque__logo {
   height: clamp(30px, 4vw, 38px);
   width: auto;
   flex: none;
+  filter: var(--marque-filtre, none);
 }
 
 .marque__texte {
@@ -123,7 +128,7 @@ body {
 }
 
 .navigation a[aria-current="page"] {
-  color: #fff;
+  color: var(--sur-primaire, #fff);
   background: var(--bleu-800);
 }
 
@@ -246,7 +251,7 @@ body {
 
 .bouton--principal {
   background: var(--bleu-800);
-  color: #fff;
+  color: var(--sur-primaire, #fff);
   box-shadow: 0 8px 20px rgba(0, 40, 126, 0.22);
 }
 
@@ -587,9 +592,9 @@ body {
   align-items: start;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 980px) {
   .atelier {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
   }
 }
 
@@ -600,7 +605,7 @@ body {
 .rendu {
   display: grid;
   place-items: center;
-  height: min(58vh, 560px);
+  height: min(48vh, 460px);
   width: auto;
   max-width: 100%;
   aspect-ratio: 3 / 4;
@@ -638,92 +643,40 @@ body {
   clip-path: polygon(0% 100%, 0% 45%, 8% 26%, 25% 11%, 50% 5%, 75% 11%, 92% 26%, 100% 45%, 100% 100%);
 }
 
-/* Logo de la boutique, a cote de la signature Symp's (jamais a la place). */
+/* Logo de la boutique, a cote de la signature Symp's (jamais a la place).
+   Il reste tel qu'il a ete fourni ; sur un fond sombre il gagne une plaque
+   claire, car la plupart des logos sont dessines pour du papier blanc. */
 .marque__boutique {
-  height: clamp(26px, 3.4vw, 34px);
+  height: clamp(28px, 3.6vw, 38px);
   width: auto;
-  max-width: 130px;
+  max-width: 150px;
   object-fit: contain;
   flex: none;
   margin-left: 0.85rem;
-  padding-left: 0.85rem;
-  border-left: 1px solid var(--bordure);
+  box-sizing: content-box;
+  padding: var(--logo-cadre, 0);
+  border-radius: 8px;
+  background: var(--logo-fond, transparent);
 }
 
-.options {
-  display: grid;
-  gap: 1.1rem;
-}
-
-.choix {
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.choix__titre {
-  padding: 0;
-  margin-bottom: 0.55rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--gris);
-}
-
-.choix__unite {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 500;
-}
-
-.choix__liste {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.choix--verrouille .choix__liste {
-  opacity: 0.55;
+/* Place reservee au logo de la boutique sur l'ecran d'attente : c'est l'ecran
+   que les clients voient le plus longtemps. */
+.logo-accueil {
+  max-height: clamp(56px, 9vw, 96px);
+  max-width: min(320px, 70vw);
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 1.25rem;
+  box-sizing: content-box;
+  padding: var(--logo-cadre, 0);
+  border-radius: 12px;
+  background: var(--logo-fond, transparent);
 }
 
 .choix__note {
   margin: 0.55rem 0 0;
   font-size: 0.83rem;
   color: var(--gris);
-}
-
-.pastille-choix {
-  padding: 0.5rem 0.9rem;
-  border: 1.5px solid var(--bordure);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--encre);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color var(--transition), background var(--transition),
-    color var(--transition);
-}
-
-.pastille-choix:hover:not(:disabled):not([data-actif='true']) {
-  border-color: var(--bleu-500);
-  background: var(--bleu-050);
-}
-
-/* L'etat selectionne doit primer sur le survol, sinon passer la souris sur une
-   pastille deja choisie la fait paraitre deselectionnee. */
-.pastille-choix[data-actif='true'],
-.pastille-choix[data-actif='true']:hover {
-  background: var(--bleu-800);
-  border-color: var(--bleu-800);
-  color: #fff;
-}
-
-.pastille-choix:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .prix {
@@ -1351,7 +1304,7 @@ select:focus {
 .logo-zone {
   display: flex;
   align-items: center;
-  gap: 1.1rem;
+  gap: 1.25rem;
   flex-wrap: wrap;
   padding: 1rem;
   border: 1px dashed var(--bordure);
@@ -1359,15 +1312,155 @@ select:focus {
   background: var(--bleu-050);
 }
 
+/* Le logo se juge sur du blanc : c'est le fond de la plupart des thèmes. */
+.logo-zone__cadre {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 180px;
+  height: 92px;
+  padding: 0.6rem;
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.logo-zone__corps {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
 .logo-zone__apercu {
-  max-height: 56px;
-  max-width: 180px;
+  max-height: 100%;
+  max-width: 100%;
   object-fit: contain;
 }
 
 .logo-zone__vide {
   color: var(--gris);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+}
+
+/* --- ou le logo apparait ------------------------------------------------------ */
+
+.places {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.place {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+}
+
+.place__nom {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.place__scene {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--a-bordure, var(--bordure));
+  border-radius: var(--rayon);
+  background: var(--a-fond, var(--surface));
+  overflow: hidden;
+}
+
+.place__scene--accueil {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.1rem;
+  text-align: center;
+}
+
+.place__symps {
+  height: 24px;
+  width: auto;
+  flex: none;
+  filter: var(--a-filtre, none);
+}
+
+.place__texte {
+  display: grid;
+  line-height: 1.2;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--a-bordure, var(--bordure));
+}
+
+.place__texte strong {
+  font-size: 0.86rem;
+  color: var(--a-primaire, var(--bleu-800));
+}
+
+.place__texte em {
+  font-size: 0.7rem;
+  font-style: normal;
+  color: var(--a-gris, var(--gris));
+}
+
+.place__boutique {
+  height: 26px;
+  width: auto;
+  max-width: 90px;
+  object-fit: contain;
+  margin-left: auto;
+  box-sizing: content-box;
+  padding: var(--a-marge, 0);
+  border-radius: 6px;
+  background: var(--a-plaque, transparent);
+}
+
+.place__accueil {
+  max-height: 46px;
+  max-width: 150px;
+  object-fit: contain;
+  box-sizing: content-box;
+  padding: var(--a-marge, 0);
+  border-radius: 8px;
+  background: var(--a-plaque, transparent);
+}
+
+/* Emplacement encore vide : on montre où le logo viendra se poser. */
+.place__vide {
+  padding: 0.2rem 0.6rem;
+  border: 1px dashed var(--a-bordure, var(--bordure));
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: var(--a-gris, var(--gris));
+  white-space: nowrap;
+}
+
+.place__scene .place__vide:first-of-type {
+  margin-left: auto;
+}
+
+.place__scene--accueil .place__vide {
+  margin-left: 0;
+}
+
+.place__titre {
+  font-size: 0.92rem;
+  color: var(--a-primaire, var(--bleu-800));
+}
+
+.place__faux-qr {
+  width: 46px;
+  height: 46px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(0deg, var(--a-encre, #0b1220) 0 4px, transparent 4px 8px),
+    repeating-linear-gradient(90deg, var(--a-encre, #0b1220) 0 4px, transparent 4px 8px);
+  opacity: 0.45;
 }
 
 .tableau {
@@ -1622,4 +1715,976 @@ select:focus {
 
 .poignee:hover {
   fill: var(--bleu-100);
+}
+
+/* ===========================================================================
+   La borne : plein ecran, barre de marque en haut, barre de commande en bas.
+   =========================================================================== */
+
+body.borne {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* --- barre de marque -------------------------------------------------------- */
+
+.barre {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.7rem clamp(0.9rem, 3vw, 2rem);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--bordure);
+}
+
+/* La signature Symp's reste entiere ; le logo du client vient s'ajouter a
+   cote, jamais a la place. */
+.barre .marque {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.barre .marque__boutique {
+  height: clamp(30px, 3.6vw, 40px);
+  max-width: 160px;
+}
+
+/* --- parcours en trois etapes ----------------------------------------------- */
+
+.parcours {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parcours__etape {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  border-radius: 999px;
+  transition: background var(--transition);
+}
+
+.parcours__pastille {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bordure);
+  background: var(--surface);
+  color: var(--gris);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.parcours__nom {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gris);
+  white-space: nowrap;
+}
+
+.parcours__etape[data-etat='courant'] {
+  background: var(--bleu-050);
+}
+
+.parcours__etape[data-etat='courant'] .parcours__pastille {
+  background: var(--bleu-800);
+  border-color: var(--bleu-800);
+  color: var(--sur-primaire, #fff);
+}
+
+.parcours__etape[data-etat='courant'] .parcours__nom {
+  color: var(--bleu-900);
+}
+
+.parcours__etape[data-etat='fait'] .parcours__pastille {
+  background: var(--bleu-100);
+  border-color: var(--bleu-100);
+  color: var(--bleu-800);
+  font-size: 0; /* la pastille devient une coche */
+}
+
+.parcours__etape[data-etat='fait'] .parcours__pastille::after {
+  content: '✓';
+  font-size: 0.95rem;
+}
+
+.parcours__etape[data-etat='a-venir'] {
+  opacity: 0.55;
+}
+
+.parcours__trait {
+  width: clamp(14px, 3vw, 40px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--bordure);
+}
+
+@media (max-width: 760px) {
+  .parcours__nom,
+  .parcours__trait {
+    display: none;
+  }
+}
+
+/* --- bouton d'aide ---------------------------------------------------------- */
+
+.bouton--fantome {
+  background: transparent;
+  border-color: var(--bordure);
+  color: var(--gris);
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.bouton--fantome:hover {
+  border-color: var(--bleu-500);
+  color: var(--bleu-800);
+  background: var(--bleu-050);
+}
+
+.rond-aide {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bleu-100);
+  color: var(--bleu-800);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+/* --- corps de la borne ------------------------------------------------------ */
+
+.scene-borne {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: min(1320px, 100% - clamp(1.5rem, 5vw, 4rem));
+  margin-inline: auto;
+  padding-block: clamp(1.25rem, 3vw, 2.25rem) 2rem;
+}
+
+/* L'ecran d'attente occupe toute la hauteur restante : il n'y a rien d'autre
+   a lire tant que le telephone n'a pas envoye de photo. */
+.attente-plein {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  text-align: center;
+}
+
+.attente-plein .carte {
+  width: min(880px, 100%);
+}
+
+.titre--atelier {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  margin-bottom: 0.35rem;
+}
+
+.sous-titre {
+  margin: 0 0 1.25rem;
+  color: var(--gris);
+  font-size: 1rem;
+}
+
+/* --- colonne de gauche : l'apercu ------------------------------------------- */
+
+.colonne-apercu {
+  min-width: 0;
+}
+
+.scene {
+  position: relative;
+}
+
+.scene__etiquette {
+  position: absolute;
+  top: 0.9rem;
+  left: 0.9rem;
+  z-index: 2;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  border: 1px solid var(--bordure);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+/* Damier tres pale : il ne se remarque que la ou la coupe retire de la matiere,
+   pour que le client voie ce qui sera reellement decoupe. */
+.scene__cadre {
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(45deg, rgba(11, 18, 32, 0.035) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(11, 18, 32, 0.035) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(11, 18, 32, 0.035) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(11, 18, 32, 0.035) 75%);
+  background-size: 22px 22px;
+  background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+}
+
+/* --- colonne de droite : les choix ------------------------------------------ */
+
+.colonne-choix {
+  min-width: 0;
+}
+
+.carte--choix {
+  display: grid;
+  gap: 1.5rem;
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+}
+
+
+.bloc {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bloc__titre {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bleu-900);
+  letter-spacing: -0.01em;
+}
+
+.bloc__num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bleu-100);
+  color: var(--bleu-800);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.bloc__note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+/* --- cartes de choix (supports, coupes) ------------------------------------- */
+
+.grille-cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 0.6rem;
+}
+
+.grille-cartes--formes {
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+}
+
+.carte-choix {
+  position: relative;
+  display: grid;
+  gap: 0.45rem;
+  justify-items: center;
+  padding: 0.6rem 0.5rem 0.55rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--encre);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.carte-choix:hover:not(:disabled) {
+  border-color: var(--bleu-500);
+  transform: translateY(-1px);
+}
+
+.carte-choix[data-actif='true'] {
+  border-color: var(--bleu-800);
+  box-shadow: 0 0 0 3px var(--bleu-100);
+}
+
+.carte-choix:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.carte-choix__nom {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
+
+/* Un support n'a pas besoin d'imitation de matiere : son nom suffit, et la
+   carte reste lisible quel que soit le theme de la boutique. */
+.carte-choix--support {
+  min-height: 62px;
+  align-content: center;
+}
+
+.carte-choix--support .carte-choix__nom {
+  font-size: 0.95rem;
+}
+
+.carte-choix__coche {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bleu-800);
+  color: var(--sur-primaire, #fff);
+  font-size: 0.72rem;
+  font-weight: 800;
+  transform: scale(0);
+  transition: transform var(--transition);
+}
+
+.carte-choix[data-actif='true'] .carte-choix__coche {
+  transform: scale(1);
+}
+
+.carte-choix__forme {
+  width: 44px;
+  height: 44px;
+  fill: var(--bleu-100);
+  stroke: var(--bleu-700);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+}
+
+.carte-choix[data-actif='true'] .carte-choix__forme {
+  fill: var(--bleu-200);
+}
+
+/* --- orientation, en bascule segmentee -------------------------------------- */
+
+.segments {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--bordure);
+  border-radius: 999px;
+  background: var(--bleu-050);
+  width: fit-content;
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gris);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.segment svg {
+  width: 18px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+.segment:hover:not([data-actif='true']) {
+  color: var(--bleu-800);
+}
+
+.segment[data-actif='true'] {
+  background: var(--surface);
+  color: var(--bleu-900);
+  box-shadow: 0 1px 3px rgba(0, 40, 126, 0.14);
+}
+
+/* --- formats ---------------------------------------------------------------- */
+
+.grille-formats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 0.5rem;
+}
+
+.pastille-format {
+  padding: 0.55rem 0.6rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--encre);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition),
+    color var(--transition);
+}
+
+.pastille-format:hover:not([data-actif='true']) {
+  border-color: var(--bleu-500);
+  background: var(--bleu-050);
+}
+
+.pastille-format[data-actif='true'] {
+  background: var(--bleu-800);
+  border-color: var(--bleu-800);
+  color: var(--sur-primaire, #fff);
+}
+
+.pastille-format--mesure {
+  border-style: dashed;
+}
+
+/* --- dimensions libres ------------------------------------------------------ */
+
+.sur-mesure {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.85rem;
+  border: 1px dashed var(--bleu-200);
+  border-radius: var(--rayon);
+  background: var(--bleu-050);
+}
+
+.champ--court {
+  flex: 1 1 110px;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.sur-mesure__croix {
+  padding-bottom: 0.85rem;
+  color: var(--gris);
+  font-weight: 700;
+}
+
+.sur-mesure__aide {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--gris);
+}
+
+/* --- barre de commande, collee en bas --------------------------------------- */
+
+.sommaire {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  flex-wrap: wrap;
+  padding: 0.85rem clamp(0.9rem, 3vw, 2rem);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--bordure);
+  box-shadow: 0 -10px 30px rgba(0, 40, 126, 0.07);
+}
+
+.sommaire__vignette {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--bordure);
+  background: var(--bleu-050);
+}
+
+.sommaire__infos {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.sommaire__titre {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.sommaire__detail {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sommaire__prix {
+  display: grid;
+  justify-items: end;
+  flex: none;
+  padding-inline: clamp(0.5rem, 2vw, 1.25rem);
+  border-left: 1px solid var(--bordure);
+}
+
+.sommaire__prix strong {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--bleu-800);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.sommaire__mention {
+  font-size: 0.72rem;
+  color: var(--gris);
+  white-space: nowrap;
+}
+
+.sommaire__prix--total strong {
+  color: var(--encre);
+}
+
+.sommaire__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+@media (max-width: 620px) {
+  .sommaire__actions {
+    flex: 1 0 100%;
+    margin-left: 0;
+  }
+
+  .sommaire__actions .bouton {
+    flex: 1;
+  }
+}
+
+/* --- editeur de forme cote client ------------------------------------------- */
+
+#forme-svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  touch-action: none;
+  cursor: crosshair;
+  background: var(--bleu-050);
+}
+
+#forme-contour {
+  fill: color-mix(in srgb, var(--bleu-600) 28%, transparent);
+  stroke: var(--bleu-800);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+
+/* ===========================================================================
+   Reglages : roue chromatique, palettes, apercu du theme, options de la borne
+   =========================================================================== */
+
+.grille-couleurs {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.couleur-bloc {
+  display: grid;
+  align-content: start;
+  gap: 0.15rem;
+  padding: 1rem;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--surface);
+}
+
+.couleur-bloc__note {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--gris);
+}
+
+.roue {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+}
+
+.roue__disque {
+  position: relative;
+  width: min(180px, 100%);
+  aspect-ratio: 1;
+}
+
+.roue__toile {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: crosshair;
+  box-shadow: 0 6px 18px rgba(0, 40, 126, 0.16);
+}
+
+.roue__curseur {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px rgba(11, 18, 32, 0.35);
+  pointer-events: none;
+}
+
+.roue__reglages {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+  width: 100%;
+}
+
+.roue__pastille {
+  grid-row: span 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--bordure);
+}
+
+.roue__lumiere {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #000, var(--vif, #3d6fe0));
+  cursor: pointer;
+}
+
+.roue__lumiere::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(11, 18, 32, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.roue__lumiere::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(11, 18, 32, 0.3);
+}
+
+.roue__hex {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--encre);
+  background: var(--surface);
+  border: 1.5px solid var(--bordure);
+  border-radius: 10px;
+}
+
+.roue__hex:focus {
+  outline: none;
+  border-color: var(--bleu-600);
+}
+
+/* --- accords tout prets ------------------------------------------------------ */
+
+.palettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.palette {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem 0.3rem 0.35rem;
+  border: 1px solid var(--bordure);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gris);
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.palette::before {
+  content: '';
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--bordure);
+  background: linear-gradient(90deg, var(--a) 33%, var(--b) 33% 66%, var(--c) 66%);
+}
+
+.palette:hover {
+  border-color: var(--bleu-500);
+  color: var(--bleu-800);
+}
+
+/* --- apercu du theme --------------------------------------------------------- */
+
+.apercu-theme {
+  position: relative;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border-radius: var(--rayon-lg);
+  border: 1px solid var(--bordure);
+  background: var(--a-fond);
+}
+
+.apercu-theme__etiquette {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.9rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--a-gris);
+}
+
+.apercu-theme__scene {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  padding: 1.25rem;
+  border-radius: var(--rayon);
+  border: 1px solid var(--a-bordure);
+  background: var(--a-surface);
+}
+
+.apercu-theme__titre {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--a-primaire);
+}
+
+.apercu-theme__texte {
+  font-size: 0.92rem;
+  color: var(--a-gris);
+}
+
+.apercu-theme__boutons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.apercu-theme__bouton {
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  background: var(--a-primaire);
+  color: var(--a-surface);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.apercu-theme__bouton--clair {
+  background: transparent;
+  border: 1px solid var(--a-bordure);
+  color: var(--a-encre);
+}
+
+/* --- options proposees au client --------------------------------------------- */
+
+.option {
+  padding: 1rem 0;
+  border-top: 1px solid var(--bordure);
+}
+
+.option:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.option .choix__note {
+  margin: 0.5rem 0 0;
+  max-width: 68ch;
+}
+
+.option__reglages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border: 1px dashed var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--bleu-050);
+}
+
+.option__reglages .champ--court {
+  flex: 0 1 190px;
+}
+
+/* --- volet de reglage d'une matiere ------------------------------------------ */
+
+.replier {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.replier__fleche {
+  transition: transform var(--transition);
+}
+
+.replier--ouvert .replier__fleche {
+  transform: rotate(90deg);
+}
+
+.volet {
+  display: grid;
+  gap: 1.1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: -0.35rem 0 0.35rem;
+  padding: 1.1rem;
+  border: 1px solid var(--bordure);
+  border-top: 0;
+  border-radius: 0 0 var(--rayon) var(--rayon);
+  background: var(--bleu-050);
+}
+
+.volet__bloc {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.volet__titre {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.volet__champs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.volet__champs .champ--court {
+  flex: 1 1 130px;
+  margin-bottom: 0;
+}
+
+.volet__champs input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--encre);
+  background: var(--surface);
+  border: 1.5px solid var(--bordure);
+  border-radius: 10px;
+}
+
+.volet .bascule {
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.volet .choix__note {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.cases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.case {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.5rem;
+  border: 1px solid var(--bordure);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.case input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--bleu-800);
+}
+
+.case:has(input:checked) {
+  border-color: var(--bleu-500);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.case:not(:has(input:checked)) {
+  opacity: 0.6;
+}
+
+.option__reglages .exemple {
+  margin-top: 0.2rem;
+  background: var(--surface);
 }

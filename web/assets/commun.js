@@ -105,14 +105,22 @@ export function prixLisible(montant, devise = '€') {
 
 /* Le logo de la boutique est optionnel : on ne le demande que s'il existe,
    pour ne pas laisser une requete en echec sur chaque page. */
-const _logoBoutique = document.getElementById('logo-boutique');
-if (_logoBoutique) {
+const _emplacements = ['logo-boutique', 'logo-accueil']
+  .map((id) => document.getElementById(id))
+  .filter(Boolean);
+const _nomBoutique = document.getElementById('nom-boutique');
+if (_emplacements.length || _nomBoutique) {
   config()
     .then((reglages) => {
+      if (_nomBoutique && reglages?.boutique?.nom) {
+        _nomBoutique.textContent = reglages.boutique.nom;
+      }
       if (!reglages?.boutique?.logo) return;
-      _logoBoutique.src = '/logo-boutique';
-      _logoBoutique.alt = reglages.boutique.nom || '';
-      _logoBoutique.classList.remove('cache');
+      for (const image of _emplacements) {
+        image.src = '/logo-boutique';
+        image.alt = reglages.boutique.nom || '';
+        image.classList.remove('cache');
+      }
     })
     .catch(() => {});
 }

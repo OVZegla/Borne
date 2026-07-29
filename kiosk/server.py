@@ -117,6 +117,81 @@ def _eclaircir(couleur: str, part: float) -> str:
     return _melanger(couleur, 255, part)
 
 
+def clarte(couleur: str) -> float:
+    """Luminosite percue d'une couleur, entre 0 (noir) et 1 (blanc).
+
+    Ponderation ITU-R BT.601 : l'oeil voit le vert bien plus que le bleu.
+    Elle decide si le texte doit etre sombre ou clair sur ce fond, pour qu'une
+    boutique puisse choisir un fond noir sans rendre ses pages illisibles.
+    """
+    couleur = couleur.lstrip("#")
+    r, v, b = (int(couleur[i:i + 2], 16) for i in (0, 2, 4))
+    return (r * 299 + v * 587 + b * 114) / 255000
+
+
+def feuille_theme(theme: dict) -> str:
+    """Palette complete deduite des trois couleurs choisies par la boutique.
+
+    Le fond decide du reste : sur un fond clair les surfaces sont blanches et
+    le texte sombre, sur un fond sombre c'est l'inverse. La boutique choisit
+    donc librement ses couleurs sans jamais fabriquer une page illisible.
+    """
+    primaire = theme["primaire"]
+    accent = theme["accent"]
+    fond = theme.get("fond") or "#F2F6FD"
+    sombre = clarte(fond) < 0.5
+
+    if sombre:
+        surface = _eclaircir(fond, 0.10)
+        encre = "#f4f7ff"
+        gris = _melanger(fond, 255, 0.62)
+        bordure = _eclaircir(fond, 0.20)
+        # Sur fond sombre, la couleur principale doit s'eclaircir pour rester
+        # lisible : un bleu nuit sur du noir ne se voit plus.
+        primaire = _eclaircir(primaire, 0.30)
+        accent = _eclaircir(accent, 0.20)
+        halo = _melanger(fond, 255, 0.14)
+    else:
+        surface = "#ffffff"
+        encre = _assombrir(primaire, 0.16)
+        gris = _melanger(_assombrir(primaire, 0.45), 255, 0.42)
+        bordure = _eclaircir(accent, 0.82)
+        halo = _eclaircir(accent, 0.80)
+
+    # Texte pose sur la couleur principale : blanc si elle est sombre, sinon
+    # une version tres foncee d'elle-meme. Sans cela, un theme clair affiche du
+    # blanc sur du pastel, illisible.
+    sur_primaire = "#ffffff" if clarte(primaire) < 0.6 else _assombrir(primaire, 0.18)
+
+    return (
+        ":root{\n"
+        f"  --sur-primaire: {sur_primaire};\n"
+        # En mode nuit, la signature Symp's passe en blanc sur fond transparent :
+        # `brightness(0)` la rend noire, `invert(1)` la retourne en blanc, et les
+        # pixels transparents le restent.
+        f"  --marque-filtre: {'brightness(0) invert(1)' if sombre else 'none'};\n"
+        # Le logo de la boutique, lui, reste tel qu'elle l'a fourni : on lui pose
+        # seulement une plaque claire si le fond est sombre.
+        f"  --logo-fond: {'#ffffff' if sombre else 'transparent'};\n"
+        f"  --logo-cadre: {'0.3rem 0.5rem' if sombre else '0'};\n"
+        f"  --bleu-800: {primaire};\n"
+        f"  --bleu-900: {_assombrir(primaire, 0.72) if not sombre else _eclaircir(primaire, 0.30)};\n"
+        f"  --bleu-700: {_assombrir(primaire, 1.22)};\n"
+        f"  --bleu-600: {accent};\n"
+        f"  --bleu-500: {_eclaircir(accent, 0.25)};\n"
+        f"  --bleu-200: {_melanger(accent, 255 if not sombre else 0, 0.62)};\n"
+        f"  --bleu-100: {_melanger(accent, 255 if not sombre else 0, 0.80)};\n"
+        f"  --bleu-050: {_melanger(accent, 255 if not sombre else 0, 0.93)};\n"
+        f"  --fond: {fond};\n"
+        f"  --halo: {halo};\n"
+        f"  --surface: {surface};\n"
+        f"  --encre: {encre};\n"
+        f"  --gris: {gris};\n"
+        f"  --bordure: {bordure};\n"
+        "}\n"
+    )
+
+
 # --- serveur -------------------------------------------------------------------
 
 
@@ -339,20 +414,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def _theme(self) -> None:
         """Feuille de style generee : les couleurs choisies par la boutique."""
-        theme = reglages.tout()["theme"]
-        css = (
-            ":root{\n"
-            f"  --bleu-800: {theme['primaire']};\n"
-            f"  --bleu-900: {_assombrir(theme['primaire'], 0.72)};\n"
-            f"  --bleu-700: {_assombrir(theme['primaire'], 1.22)};\n"
-            f"  --bleu-600: {theme['accent']};\n"
-            f"  --bleu-500: {_eclaircir(theme['accent'], 0.25)};\n"
-            f"  --bleu-200: {_eclaircir(theme['accent'], 0.62)};\n"
-            f"  --bleu-100: {_eclaircir(theme['accent'], 0.80)};\n"
-            f"  --bleu-050: {_eclaircir(theme['accent'], 0.93)};\n"
-            "}\n"
+        self._send(
+            HTTPStatus.OK,
+            feuille_theme(reglages.tout()["theme"]).encode("utf-8"),
+            "text/css; charset=utf-8",
         )
-        self._send(HTTPStatus.OK, css.encode("utf-8"), "text/css; charset=utf-8")
 
     def _logo_boutique(self) -> None:
         nom = reglages.tout()["boutique"].get("logo")
@@ -464,6 +530,8 @@ class Handler(BaseHTTPRequestHandler):
             str(choix.get("format", "")),
             str(choix.get("forme", "initial")),
             str(choix.get("orientation", catalogue.PORTRAIT)),
+            choix.get("mesures"),
+            choix.get("points"),
         )
         BROKER.publish("article", {"image": image.public()}, canal=token)
         self._json(image.public())
