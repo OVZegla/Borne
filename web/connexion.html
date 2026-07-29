@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Connexion</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="enveloppe enveloppe--etroite">
+    <header class="entete entete--simple">
+      <span class="marque">
+        <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous">Connexion</span>
+        </span>
+      </span>
+    </header>
+
+    <main>
+      <section id="etape-connexion">
+        <div class="centre">
+          <h1 class="titre">Connectez votre boutique</h1>
+          <p class="chapeau">
+            Saisissez les identifiants de votre abonnement. Les autres postes de
+            la boutique se connecteront ensuite automatiquement.
+          </p>
+        </div>
+
+        <div class="carte">
+          <form id="formulaire" autocomplete="on">
+            <label class="champ">
+              <span class="champ__libelle">Adresse e-mail</span>
+              <input type="email" id="email" name="email" required
+                     autocomplete="username" inputmode="email" placeholder="boutique@exemple.fr">
+            </label>
+
+            <label class="champ">
+              <span class="champ__libelle">Mot de passe</span>
+              <input type="password" id="mot-de-passe" name="password" required
+                     autocomplete="current-password" placeholder="••••••••">
+            </label>
+
+            <button class="bouton bouton--principal bouton--large" id="btn-connexion"
+                    type="submit" style="width: 100%; margin-top: 0.5rem">
+              Se connecter
+            </button>
+          </form>
+
+          <p class="message message--erreur cache" id="message-erreur"
+             style="margin-top: 1.25rem"></p>
+        </div>
+
+        <p class="chapeau centre" style="margin-top: 1.5rem; font-size: 0.9rem">
+          Pas encore d'abonnement&nbsp;? Contactez Symp's pour ouvrir un compte.
+        </p>
+      </section>
+
+      <!-- Abonnement connu mais inutilisable : expiré, ou hors ligne trop longtemps -->
+      <section id="etape-probleme" class="cache">
+        <div class="centre">
+          <h1 class="titre" id="titre-probleme"></h1>
+          <p class="chapeau" id="detail-probleme"></p>
+        </div>
+        <div class="actions actions--empilees">
+          <button class="bouton bouton--principal bouton--large" id="btn-reessayer" type="button">
+            Réessayer
+          </button>
+          <button class="bouton bouton--secondaire" id="btn-changer" type="button">
+            Utiliser un autre compte
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="pied">Symp's Kiosk · version <span id="version">—</span></footer>
+  </div>
+
+  <script type="module" src="/assets/connexion.js"></script>
+</body>
+</html>

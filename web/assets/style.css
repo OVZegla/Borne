@@ -363,6 +363,39 @@ body {
   transition: width 120ms linear;
 }
 
+/* --- formulaire de connexion ----------------------------------------------- */
+
+.champ {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.champ__libelle {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gris);
+}
+
+.champ input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--encre);
+  background: var(--surface);
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.champ input:focus {
+  outline: none;
+  border-color: var(--bleu-600);
+  box-shadow: 0 0 0 4px var(--bleu-100);
+}
+
 /* --- borne : ecran d'attente ---------------------------------------------- */
 
 .enveloppe--etroite {

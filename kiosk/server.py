@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import catalogue, config, qr, reseau
+from . import catalogue, config, licence, qr, reseau
 from .storage import Store, StorageError
 
 STORE = Store()
@@ -175,14 +175,37 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 pass
 
+    # Accessibles sans abonnement actif : de quoi se connecter, et rien d'autre.
+    LIBRES = ("/connexion", "/api/compte", "/api/config", "/assets/")
+
+    def _abonnement_bloque(self, path: str) -> bool:
+        if any(path == libre or path.startswith(libre) for libre in self.LIBRES):
+            return False
+        return not licence.etat_actuel().get("utilisable", True)
+
     def _dispatch(self, method: str, path: str, query: dict) -> None:
         pages = {
             "/": "index.html",
+            "/connexion": "connexion.html",
             "/envoyer": "envoyer.html",
             "/paiement": "paiement.html",
             "/recuperer": "recuperer.html",
             "/impression": "impression.html",
         }
+
+        if self._abonnement_bloque(path):
+            if path in pages or path == "/":
+                return self._redirect("/connexion")
+            return self._error(HTTPStatus.PAYMENT_REQUIRED, "Abonnement requis")
+
+        if method == "POST":
+            if path == "/api/compte/connexion":
+                return self._connexion()
+            if path == "/api/compte/deconnexion":
+                licence.oublier()
+                return self._json({"deconnecte": True})
+        if method == "GET" and path == "/api/compte":
+            return self._json(licence.etat_actuel())
 
         if method == "GET":
             if path in pages:
@@ -263,6 +286,7 @@ class Handler(BaseHTTPRequestHandler):
         self._json(
             {
                 "marque": config.BRAND_NAME,
+                "version": config.VERSION,
                 "couleur": config.BRAND_COLOR,
                 "urls": base_urls(port),
                 "url_reseau": preferred_url(port),
@@ -272,6 +296,21 @@ class Handler(BaseHTTPRequestHandler):
                 "types_autorises": sorted(config.ALLOWED_TYPES),
             }
         )
+
+    def _connexion(self) -> None:
+        """L'operateur saisit ses identifiants d'abonnement sur cette machine."""
+        recu = self._read_json()
+        if recu is None:
+            return self._error(HTTPStatus.BAD_REQUEST, "Corps JSON attendu")
+        email = str(recu.get("email", "")).strip()
+        mot_de_passe = str(recu.get("mot_de_passe", ""))
+        if not email or not mot_de_passe:
+            return self._error(HTTPStatus.BAD_REQUEST, "Adresse e-mail et mot de passe requis")
+        try:
+            active = licence.activer(email, mot_de_passe, config.machine())
+        except licence.LicenceError as exc:
+            return self._error(HTTPStatus.UNAUTHORIZED, str(exc))
+        self._json(active.public())
 
     def _open_session(self) -> None:
         """La borne ouvre une session et recoit le lien a mettre dans son QR code."""

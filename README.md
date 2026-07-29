@@ -193,6 +193,9 @@ Tout se règle par variables d'environnement, sans toucher au code :
 | `SYMPS_DRAFT_HOURS` | `2` | oubli d'une session ouverte mais restée vide |
 | `SYMPS_MAX_MB` | `25` | taille maximale par fichier |
 | `SYMPS_MAX_FILES` | `20` | nombre de fichiers par dépôt |
+| `SYMPS_LICENCE_URL` | — | serveur d'abonnement ; vide = pas de connexion exigée |
+| `SYMPS_LICENCE_CLE` | — | clé publique servant à vérifier les licences |
+| `SYMPS_LICENCE_GRACE_HEURES` | `72` | fonctionnement hors ligne toléré |
 | `SYMPS_VERBOSE` | — | à définir pour journaliser chaque requête |
 
 ¹ Par défaut, l'emplacement inscriptible propre à chaque système :
@@ -247,6 +250,22 @@ Options en ligne de commande : `./start.sh --port 9000 --no-browser`
 
 ---
 
+## Abonnement
+
+Quand `SYMPS_LICENCE_URL` est renseignée — c'est le cas des versions livrées aux
+clients — l'application demande une **connexion au lancement**. Tant qu'aucun
+abonnement actif n'est enregistré, toutes les pages renvoient vers `/connexion`.
+
+Une fois connectée, la boutique reçoit une licence signée qui lui permet de
+fonctionner **72 h sans Internet**. C'est aussi le compte qui appaire les
+machines entre elles sur le réseau local.
+
+Sur une copie de développement, la variable est vide : l'application tourne sans
+abonnement, comme aujourd'hui.
+
+**Voir [ABONNEMENT.md](ABONNEMENT.md)** pour l'hébergement du service de licences
+et la gestion des abonnements avec Stripe.
+
 ## Livrer aux clients : ce qui reste à faire
 
 Aujourd'hui l'application se lance par un script et suppose Python installé.
@@ -298,7 +317,9 @@ kiosk/
   storage.py           dépôts, articles, paiement, expiration
   imagemeta.py         dimensions lues dans les en-têtes (sans Pillow)
   qr.py                générateur de QR code autonome
+  licence.py           abonnement : activation, licence signée, hors ligne
 web/
+  connexion.html       écran de connexion à l'abonnement
   index.html           la borne : QR, photos en grand, choix du tirage, code
   envoyer.html         le téléphone : envoi des photos après scan du QR
   paiement.html        le téléphone : récapitulatif et règlement

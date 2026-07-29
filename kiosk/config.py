@@ -51,6 +51,27 @@ def dossier_donnees_par_defaut(
     return os.path.join(racine, "symps-kiosk", "depots")
 
 
+def machine() -> str:
+    """Identifiant stable de ce poste, pour compter les machines d'un abonnement."""
+    impose = os.environ.get("SYMPS_MACHINE")
+    if impose:
+        return impose
+    fichier = DATA_DIR / "machine.txt"
+    try:
+        existant = fichier.read_text("utf-8").strip()
+        if existant:
+            return existant
+    except OSError:
+        pass
+    nouveau = secrets.token_hex(8)
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        fichier.write_text(nouveau, "utf-8")
+    except OSError:
+        pass
+    return nouveau
+
+
 def port_reutilisable(nom_os: str | None = None) -> bool:
     """SO_REUSEADDR est-il sur a activer sur ce systeme ?
 
@@ -92,6 +113,20 @@ ALLOWED_TYPES = {
 
 BRAND_NAME = "Symp's Kiosk"
 BRAND_COLOR = "#00287E"
+
+# --- abonnement --------------------------------------------------------------
+# Adresse du serveur de licences. Elle est vide sur une copie de developpement :
+# l'application tourne alors sans abonnement. Les versions livrees aux clients
+# sont construites avec cette valeur renseignee, ce qui active la connexion.
+LICENCE_URL = os.environ.get("SYMPS_LICENCE_URL", "").strip()
+
+# Cle *publique* du serveur de licences. Elle ne permet que de verifier une
+# licence, jamais d'en fabriquer : elle peut donc etre livree avec l'application.
+LICENCE_CLE_PUBLIQUE = os.environ.get("SYMPS_LICENCE_CLE", "").strip()
+
+# Duree pendant laquelle l'application continue de fonctionner sans joindre le
+# serveur. Une boutique privee d'Internet ne doit pas s'arreter de vendre.
+LICENCE_GRACE_HEURES = _int_env("SYMPS_LICENCE_GRACE_HEURES", 72)
 
 
 def atelier() -> str:
