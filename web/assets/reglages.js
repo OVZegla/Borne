@@ -1,13 +1,15 @@
 /* Page d'administration : marque, catalogue, tarifs, encaissement. */
 
-import { $, api, element, marquerPageActive } from './commun.js';
+import { $, api, element } from './commun.js';
+import { brancherChangementDePoste, poserNavigation } from './navigation.js';
 import { creerRoue } from './roue.js';
 
 let etat = null;
 let geometries = {};
 const roues = {};
 
-marquerPageActive();
+poserNavigation();
+brancherChangementDePoste();
 demarrer();
 
 async function demarrer() {
@@ -46,6 +48,8 @@ function remplir(recu) {
 
   $('#formes-actives').checked = Boolean(recu.catalogue.formes_actives);
   $('#mode-paiement').value = recu.paiement.mode || 'comptoir';
+  $(`#ordre-${recu.paiement.ordre === 'avant' ? 'avant' : 'apres'}`).checked = true;
+  majOrdre();
   $('#lien-paiement').value = recu.paiement.lien || '';
   $('#libelle-paiement').value = recu.paiement.libelle || '';
   majBlocLien();
@@ -641,9 +645,16 @@ function majExempleSurMesure() {
 /* --- encaissement ----------------------------------------------------------- */
 
 $('#mode-paiement').addEventListener('change', majBlocLien);
+for (const id of ['#ordre-avant', '#ordre-apres']) {
+  $(id).addEventListener('change', majOrdre);
+}
 
 function majBlocLien() {
   $('#bloc-lien').classList.toggle('cache', $('#mode-paiement').value !== 'lien');
+}
+
+function majOrdre() {
+  $('#avertissement-ordre').classList.toggle('cache', !$('#ordre-avant').checked);
 }
 
 /* --- enregistrement --------------------------------------------------------- */
@@ -674,6 +685,7 @@ $('#btn-enregistrer').addEventListener('click', async () => {
     },
     paiement: {
       mode: $('#mode-paiement').value,
+      ordre: $('#ordre-avant').checked ? 'avant' : 'apres',
       lien: $('#lien-paiement').value,
       libelle: $('#libelle-paiement').value,
     },

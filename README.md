@@ -9,14 +9,74 @@ Le parcours :
 1. La borne affiche un **QR code**.
 2. Le client le scanne avec son téléphone et envoie ses photos.
 3. Les photos s'affichent **en grand sur la borne**, au fur et à mesure.
-4. Pour chaque photo, il choisit sa **matière**, ses **dimensions** et sa
+4. Pour chaque photo, il choisit son **support**, son **format** et sa
    **forme** — l'aperçu montre le tirage tel qu'il sera, et le prix s'affiche.
-5. Il **valide** : un **code à 4 chiffres** et un **QR code de paiement** apparaissent.
+5. Il **valide** : un **code à 4 chiffres** et un **QR code de paiement**
+   apparaissent — ou, si la boutique fait payer d'abord, le QR de règlement
+   d'abord et le code seulement après encaissement.
 6. À la réception, le code ouvre le dépôt, avec le détail des tirages et la
    mention **En attente** ou **Payé**, qui bascule en direct.
 
 Aucune dépendance à installer : **Python 3 suffit**, tout le reste est écrit avec
 la bibliothèque standard.
+
+---
+
+## Trois sortes de postes
+
+Un appareil n'a pas les mêmes droits selon ce qu'il est. Le choix se fait au
+premier chargement, et il est retenu :
+
+| Poste | Ce qu'il voit | Sa page d'accueil |
+| --- | --- | --- |
+| **Borne** | l'écran face au client, et rien d'autre | `/` |
+| **Imprimante** | réception, impression, réglages | `/recuperer` |
+| **PC** | tableau de bord, réception, impression, réglages | `/tableau` |
+
+**La borne est cloisonnée.** Elle n'atteint ni la réception, ni les réglages, ni
+le tableau de bord : un client qui tapote l'écran ne doit pas tomber sur vos
+tarifs ou sur les dépôts des autres. Ce n'est pas qu'un menu allégé — le serveur
+lui **refuse** ces routes, et une adresse tapée à la main la ramène sur son
+écran.
+
+Le rôle vit dans un jeton tiré au hasard, posé en cookie. Un appareil ne peut
+donc pas s'inventer un rôle en modifiant son cookie : il ne connaît pas les
+jetons des autres. Le bouton **« Changer le rôle de cet appareil »**, en pied de
+page des postes de gestion, permet de repartir sur l'écran de choix.
+
+Le **téléphone du client** n'est pas un poste : il n'a aucun rôle, et n'atteint
+que la page d'envoi et la page de règlement, dont le secret est le jeton contenu
+dans le QR code.
+
+### Comment on se connecte
+
+L'abonnement ne se saisit **qu'une fois**, sur la machine qui héberge
+l'application, et cette machine déclare alors si elle est le PC ou l'imprimante.
+Les autres appareils arrivent par le réseau local : ils n'ont **rien à saisir**,
+juste à dire ce qu'ils sont.
+
+> **À savoir** : sur le réseau local, qui atteint la borne peut aussi ouvrir
+> l'écran de choix et se déclarer « PC ». Sur le Wi-Fi de la boutique c'est sans
+> conséquence ; si vos clients partagent le réseau de vos machines, il faudra un
+> code d'accès sur ce choix — il n'y en a pas aujourd'hui.
+
+## Le tableau de bord (poste PC)
+
+`/tableau` ouvre sur ce qu'un gérant regarde en arrivant :
+
+- **les quatre chiffres du jour** — encaissé, en attente de paiement, dépôts,
+  panier moyen ;
+- **ce qui demande une action** — les dépôts à encaisser et ceux qui expirent
+  dans moins de trois heures, cliquables pour ouvrir le dépôt ;
+- **la recette des sept derniers jours**, en barres ;
+- **ce qui se vend** — le classement des supports et des formats, en nombre de
+  tirages et en recette ;
+- **les postes de la boutique** vus dans les cinq dernières minutes.
+
+Tout se recalcule à la demande depuis les dépôts en cours : les chiffres portent
+donc sur la **période de conservation** (24 h par défaut). Ce n'est pas une
+comptabilité au long cours. La page suit la boutique en direct — un encaissement
+au comptoir s'y voit sans rafraîchir.
 
 ---
 
@@ -102,8 +162,9 @@ Pour arrêter la borne : `Ctrl+C` dans la fenêtre du Terminal.
 
 ### Sur la borne
 
-Laissez `http://localhost:8080` ouvert en plein écran. La page affiche en
-permanence le QR code d'envoi et attend les photos.
+Laissez `http://localhost:8080` ouvert en plein écran, sur un appareil déclaré
+**Borne**. La page affiche en permanence le QR code d'envoi et attend les photos ;
+elle ne mène nulle part ailleurs.
 
 Une barre en haut suit le parcours en **trois étapes** — Photo, Personnalisation,
 Validation — pour que le client sache toujours où il en est.
@@ -191,12 +252,14 @@ direct.
 
 ### Sur le poste d'impression
 
-Trois façons d'arriver au dépôt :
+Depuis un appareil déclaré **Imprimante** ou **PC**, trois façons d'arriver au
+dépôt :
 
-- ouvrir `http://<adresse-de-la-borne>:8080/recuperer` et saisir le code
-- scanner le QR code affiché sur la borne après validation
+- ouvrir `http://<adresse-de-l-hôte>:8080/recuperer` et saisir le code
 - cliquer sur le dépôt dans la liste **Derniers dépôts**, qui se met à jour en
   direct sans rafraîchir la page
+- depuis le tableau de bord, cliquer sur une ligne des files **À encaisser** ou
+  **Expirent bientôt**
 
 Chaque photo affiche le tirage commandé (matière, format, forme) et son prix,
 avec **Imprimer** (page épurée, prête pour `⌘P`) et **Télécharger**. Un bouton
@@ -350,7 +413,8 @@ trouve s'applique aussitôt sur tous les postes :
 - **Ce que le client peut demander** — deux options que la boutique ouvre ou
   ferme : les **dimensions sur mesure** et la **forme libre** dessinée par le
   client sur la borne.
-- **Encaissement** — au comptoir, ou vers votre propre lien de paiement.
+- **Encaissement** — au comptoir ou vers votre propre lien de paiement, et
+  **quand** le client paie (voir plus bas).
 
 ### Chaque matière a ses propres règles
 
@@ -388,6 +452,25 @@ Le client dessine son propre contour sur la borne, par-dessus sa photo affichée
 en transparence. À n'activer que si la machine sait suivre un tracé quelconque.
 Le contour demande au moins trois points, et le supplément s'ajoute au prix du
 tirage nu.
+
+### Payer avant ou après
+
+Deux enchaînements possibles après la validation, au choix de la boutique :
+
+- **Code d'abord** (par défaut) — la borne donne le code de retrait et le QR de
+  règlement ensemble. Le client paie sur son téléphone ou au comptoir, et
+  récupère ses tirages dans tous les cas.
+- **Paiement d'abord** — la borne affiche le **QR de règlement en grand**, et le
+  code de retrait n'apparaît **qu'une fois l'encaissement confirmé**. Le
+  serveur ne délivre pas le code avant : ce n'est pas qu'un affichage, une
+  requête directe est refusée avec un `402`.
+
+> Le paiement se confirme **à la réception** (voir « Le paiement »). En mode
+> « paiement d'abord », un client qui règle sur son téléphone attend donc que
+> quelqu'un valide l'encaissement au comptoir. C'est voulu : la borne ne sait pas
+> seule qu'un virement a abouti. Le jour où l'API d'un prestataire est
+> raccordée, le déblocage devient automatique — le reste du mécanisme est déjà
+> en place.
 
 ### Dessiner une coupe
 
@@ -447,8 +530,11 @@ kiosk/
   imagemeta.py         dimensions lues dans les en-têtes (sans Pillow)
   qr.py                générateur de QR code autonome
   licence.py           abonnement : activation, licence signée, hors ligne
+  postes.py            rôle de chaque appareil (borne, imprimante, PC) et droits
+  tableau.py           chiffres du tableau de bord
 web/
-  connexion.html       écran de connexion à l'abonnement
+  connexion.html       abonnement de la boutique, puis rôle de cet appareil
+  tableau.html         le PC : tableau de bord de la boutique
   reglages.html        personnalisation : marque, catalogue, encaissement
   index.html           la borne : QR, photos en grand, choix du tirage, code
   envoyer.html         le téléphone : envoi des photos après scan du QR
@@ -466,29 +552,36 @@ Un dépôt a deux identifiants : le **jeton** (`token`), secret d'envoi encodé 
 le QR code de la borne, et le **code** à 4 chiffres, révélé à la validation et
 utilisé pour le retrait.
 
-| Méthode | Chemin | Rôle |
-| --- | --- | --- |
-| `POST` | `/api/sessions` | ouvre une session, renvoie le jeton et l'URL du QR |
-| `GET` | `/api/sessions/<jeton>` | état de la session (sans le code) |
-| `POST` | `/api/sessions/<jeton>/images` | envoie une photo (corps = octets bruts) |
-| `POST` | `/api/sessions/<jeton>/images/<id>/article` | choisit matière, format et forme |
-| `POST` | `/api/sessions/<jeton>/valider` | clôture le dépôt et révèle le code |
-| `GET` | `/api/catalogue` | matières, formats, coupes et grille de prix |
-| `GET` `POST` `DELETE` | `/api/reglages` | réglages de la boutique |
-| `POST` `DELETE` | `/api/reglages/logo` | logo de la boutique |
-| `GET` | `/assets/theme.css` | couleurs de la boutique, feuille générée |
-| `GET` | `/api/paiement/<jeton>` | récapitulatif de la commande et son statut |
-| `POST` | `/api/depots/<code>/paiement` | la réception confirme l'encaissement |
-| `DELETE` | `/api/sessions/<jeton>` | abandonne la session en cours |
-| `GET` | `/api/depots` | liste les dépôts **validés** |
-| `GET` | `/api/depots/<code>` | contenu d'un dépôt validé |
-| `GET` | `/api/depots/<code>/zip` | archive du dépôt |
-| `DELETE` | `/api/depots/<code>` | supprime un dépôt |
-| `GET` | `/media/<id>` | l'image (`?dl=1` pour forcer le téléchargement) |
-| `DELETE` | `/api/images/<id>` | supprime une image |
-| `GET` | `/api/evenements` | flux SSE public (dépôts validés, suppressions) |
-| `GET` | `/api/evenements?session=<jeton>` | flux SSE d'une seule borne |
-| `GET` | `/qr.svg?d=<url>` | QR code en SVG |
-| `GET` | `/e?s=<jeton>` | lien court encodé dans le QR code de la borne |
-| `GET` | `/p?j=<jeton>` | lien court encodé dans le QR code de paiement |
-| `GET` | `/r?c=<code>` | lien court vers un dépôt validé |
+La colonne **Poste** dit quel rôle a le droit d'appeler la route. « — » signifie
+qu'elle est ouverte à tous, y compris au téléphone du client, qui n'a pas de
+rôle ; son secret est alors le jeton qu'il détient.
+
+| Méthode | Chemin | Poste | Rôle |
+| --- | --- | --- | --- |
+| `GET` `POST` `DELETE` | `/api/poste` | — | lit, déclare ou oublie le rôle de cet appareil |
+| `GET` | `/api/tableau` | PC | chiffres du tableau de bord |
+| `POST` | `/api/sessions` | borne | ouvre une session, renvoie le jeton et l'URL du QR |
+| `GET` | `/api/sessions/<jeton>` | — | état de la session (sans le code) |
+| `POST` | `/api/sessions/<jeton>/images` | — | envoie une photo (corps = octets bruts) |
+| `POST` | `/api/sessions/<jeton>/images/<id>/article` | borne | choisit support, format et forme |
+| `POST` | `/api/sessions/<jeton>/valider` | borne | clôture le dépôt et révèle le code |
+| `GET` | `/api/sessions/<jeton>/code` | borne | le code, si le règlement est encaissé (sinon `402`) |
+| `GET` | `/api/catalogue` | — | supports, formats, coupes et grille de prix |
+| `GET` `POST` `DELETE` | `/api/reglages` | imprimante, PC | réglages de la boutique |
+| `POST` `DELETE` | `/api/reglages/logo` | imprimante, PC | logo de la boutique |
+| `GET` | `/assets/theme.css` | — | couleurs de la boutique, feuille générée |
+| `GET` | `/api/paiement/<jeton>` | — | récapitulatif de la commande et son statut |
+| `POST` | `/api/depots/<code>/paiement` | imprimante, PC | la réception confirme l'encaissement |
+| `DELETE` | `/api/sessions/<jeton>` | borne | abandonne la session en cours |
+| `GET` | `/api/depots` | imprimante, PC | liste les dépôts **validés** |
+| `GET` | `/api/depots/<code>` | imprimante, PC | contenu d'un dépôt validé |
+| `GET` | `/api/depots/<code>/zip` | imprimante, PC | archive du dépôt |
+| `DELETE` | `/api/depots/<code>` | imprimante, PC | supprime un dépôt |
+| `GET` | `/media/<id>` | — | l'image (`?dl=1` pour forcer le téléchargement) |
+| `DELETE` | `/api/images/<id>` | imprimante, PC | supprime une image |
+| `GET` | `/api/evenements` | — | flux SSE public (dépôts validés, suppressions) |
+| `GET` | `/api/evenements?session=<jeton>` | — | flux SSE d'une seule borne |
+| `GET` | `/qr.svg?d=<url>` | — | QR code en SVG |
+| `GET` | `/e?s=<jeton>` | — | lien court encodé dans le QR code de la borne |
+| `GET` | `/p?j=<jeton>` | — | lien court encodé dans le QR code de paiement |
+| `GET` | `/r?c=<code>` | imprimante, PC | lien court vers un dépôt validé |

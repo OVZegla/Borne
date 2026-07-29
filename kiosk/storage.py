@@ -129,11 +129,17 @@ class Ticket:
             "validated_at": self.validated_at,
         }
 
-    def session(self) -> dict:
-        """Vue destinee a la borne et au telephone : pas de code avant validation."""
+    def session(self, code_visible: bool = True) -> dict:
+        """Vue destinee a la borne et au telephone : pas de code avant validation.
+
+        `code_visible` retombe a False quand la boutique fait payer d'abord : le
+        code de retrait n'est alors delivre qu'une fois le reglement encaisse.
+        """
         data = {**self._commun(), "token": self.token, "complete": self.configured}
         if self.validated:
-            data["code"] = self.code
+            data["code_bloque"] = not code_visible
+            if code_visible:
+                data["code"] = self.code
         return data
 
     def paiement(self) -> dict:

@@ -61,6 +61,29 @@
         </p>
       </section>
 
+      <!-- Cet appareil déclare ce qu'il est. Rien à saisir : l'abonnement est
+           déjà validé pour la boutique, on arrive par le réseau local. -->
+      <section id="etape-role" class="cache">
+        <div class="centre">
+          <h1 class="titre" id="titre-role">Cet appareil est…</h1>
+          <p class="chapeau" id="chapeau-role">
+            Ce choix est retenu&nbsp;: cet appareil s'ouvrira directement au bon
+            endroit la prochaine fois.
+          </p>
+        </div>
+
+        <div class="roles" id="liste-roles"></div>
+
+        <p class="message message--erreur cache" id="erreur-role"
+           style="margin-top: 1.25rem"></p>
+
+        <p class="chapeau centre" style="margin-top: 1.5rem; font-size: 0.9rem">
+          <button class="bouton bouton--discret cache" id="btn-tous-roles" type="button">
+            Cet appareil est en fait la borne client
+          </button>
+        </p>
+      </section>
+
       <!-- Abonnement connu mais inutilisable : expiré, ou hors ligne trop longtemps -->
       <section id="etape-probleme" class="cache">
         <div class="centre">

@@ -20,11 +20,7 @@
           <span class="marque__sous">Réglages</span>
         </span>
       </a>
-      <nav class="navigation">
-        <a href="/">Borne</a>
-        <a href="/recuperer">Réception</a>
-        <a href="/reglages">Réglages</a>
-      </nav>
+      <nav class="navigation" id="navigation"></nav>
     </header>
 
     <main>
@@ -324,6 +320,40 @@
             <option value="lien">Lien de paiement (PayPal, SumUp, Stripe…)</option>
           </select>
         </label>
+        <span class="champ__libelle" style="margin-top: 1.25rem">Quand le client paie</span>
+        <div class="modes" style="margin-bottom: 1.25rem">
+          <label class="mode">
+            <input type="radio" name="ordre" value="apres" id="ordre-apres">
+            <span class="mode__corps">
+              <span class="mode__titre">Code d'abord</span>
+              <span class="mode__texte">
+                La borne donne le <strong>code de retrait et le QR de règlement
+                ensemble</strong>. Le client peut payer sur son téléphone ou au
+                comptoir, et récupère ses tirages dans tous les cas.
+              </span>
+            </span>
+          </label>
+
+          <label class="mode">
+            <input type="radio" name="ordre" value="avant" id="ordre-avant">
+            <span class="mode__corps">
+              <span class="mode__titre">Paiement d'abord</span>
+              <span class="mode__texte">
+                La borne affiche le <strong>QR de règlement en grand</strong>, et
+                le code de retrait n'apparaît qu'une fois l'encaissement
+                confirmé. Le serveur ne délivre pas le code avant&nbsp;: ce n'est
+                pas qu'un affichage.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <p class="message message--info cache" id="avertissement-ordre">
+          Le paiement se confirme <strong>à la réception</strong>. Avec ce
+          réglage, un client qui paie sur son téléphone attend donc que
+          quelqu'un valide l'encaissement au comptoir pour obtenir son code.
+        </p>
+
         <div id="bloc-lien" class="cache">
           <label class="champ">
             <span class="champ__libelle">Adresse du lien de paiement</span>
@@ -357,7 +387,12 @@
       <p class="message message--erreur cache" id="message-erreur" style="margin-top: 1rem"></p>
     </main>
 
-    <footer class="pied">Symp's Kiosk</footer>
+    <footer class="pied">
+      Symp's Kiosk · <span id="pied-poste"></span>
+      <button class="bouton bouton--discret" id="btn-changer-poste" type="button">
+        Changer le rôle de cet appareil
+      </button>
+    </footer>
   </div>
 
   <script type="module" src="/assets/reglages.js"></script>

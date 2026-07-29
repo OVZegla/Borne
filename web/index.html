@@ -147,6 +147,42 @@
       </div>
     </section>
 
+    <!-- Étape 3a : la boutique fait payer d'abord. Le QR occupe l'écran, et le
+         code de retrait n'apparaît qu'une fois l'encaissement confirmé. -->
+    <section id="etape-paiement" class="cache attente-plein">
+      <div class="centre">
+        <h1 class="titre">Réglez votre commande</h1>
+        <p class="chapeau">
+          Scannez ce code avec votre téléphone pour payer. Votre code de retrait
+          s'affichera ici dès le règlement encaissé.
+        </p>
+      </div>
+
+      <div class="paiement-geant">
+        <figure class="qr qr--plein">
+          <img id="qr-paiement-geant" alt="QR code de paiement">
+        </figure>
+        <div class="paiement-geant__corps">
+          <p class="total total--grand" style="border: 0; margin: 0; padding: 0">
+            <span>Montant à régler</span>
+            <strong id="total-a-payer">—</strong>
+          </p>
+          <p class="ligne__detail" id="resume-a-payer"></p>
+          <span class="etat etat--attente" id="etat-attente-paiement">
+            <span class="etat__point"></span> En attente du règlement…
+          </span>
+          <p class="bloc__note">
+            Vous préférez régler au comptoir&nbsp;? Présentez-vous à la caisse,
+            l'équipe débloquera votre code.
+          </p>
+        </div>
+      </div>
+
+      <p class="attente">
+        <span class="attente__point"></span> Ne fermez pas cette page
+      </p>
+    </section>
+
     <!-- Étape 3 : le code de retrait -->
     <section id="etape-code" class="cache">
       <div class="centre">
@@ -166,13 +202,13 @@
               <span>Total à régler</span>
               <strong id="total-commande">—</strong>
             </p>
+            <p class="bloc__note" id="consigne-retrait">
+              Présentez ce code au comptoir pour récupérer vos tirages.
+            </p>
             <div class="actions" style="justify-content: flex-start; margin-top: 1.25rem">
               <button class="bouton bouton--principal" id="btn-recommencer" type="button">
                 Nouveau dépôt
               </button>
-              <a class="bouton bouton--secondaire" id="lien-recuperer" href="/recuperer">
-                Ouvrir la page de retrait
-              </a>
             </div>
           </div>
           <figure class="qr" style="margin: 0">

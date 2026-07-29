@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Tableau de bord</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/theme.css">
+</head>
+<body>
+  <div class="enveloppe">
+    <header class="entete">
+      <a class="marque" href="/tableau">
+        <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
+        <img class="marque__boutique cache" id="logo-boutique" alt="">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous" id="nom-boutique">Tableau de bord</span>
+        </span>
+      </a>
+      <nav class="navigation" id="navigation"></nav>
+    </header>
+
+    <main>
+      <div class="section__titre">
+        <h1 class="titre titre--atelier">Aujourd'hui</h1>
+        <span class="pastille" id="horodatage"></span>
+      </div>
+
+      <!-- Les quatre chiffres qu'on regarde en arrivant -->
+      <div class="tuiles" id="tuiles"></div>
+
+      <!-- Ce qui demande une action -->
+      <section class="section">
+        <div class="section__titre">
+          <h2>À traiter</h2>
+          <span class="chapeau" style="margin: 0; font-size: 0.9rem">
+            Les dépôts qui attendent quelque chose de vous.
+          </span>
+        </div>
+        <div class="grille-files">
+          <div class="carte">
+            <div class="file__entete">
+              <h3 class="file__titre">À encaisser</h3>
+              <span class="etat etat--attente" id="compte-encaisser">
+                <span class="etat__point"></span> 0
+              </span>
+            </div>
+            <ul class="depots" id="liste-encaisser"></ul>
+            <p class="vide cache" id="vide-encaisser">Tout est réglé.</p>
+          </div>
+          <div class="carte">
+            <div class="file__entete">
+              <h3 class="file__titre">Expirent bientôt</h3>
+              <span class="etat etat--attente" id="compte-expirent">
+                <span class="etat__point"></span> 0
+              </span>
+            </div>
+            <ul class="depots" id="liste-expirent"></ul>
+            <p class="vide cache" id="vide-expirent">Aucun dépôt sur le départ.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tendance -->
+      <section class="section">
+        <div class="section__titre"><h2>Sept derniers jours</h2></div>
+        <div class="carte">
+          <div class="histo" id="histogramme"></div>
+        </div>
+      </section>
+
+      <!-- Ce qui se vend -->
+      <section class="section">
+        <div class="section__titre"><h2>Ce qui se vend</h2></div>
+        <div class="grille-files">
+          <div class="carte">
+            <h3 class="file__titre">Supports</h3>
+            <ul class="classement" id="classement-supports"></ul>
+          </div>
+          <div class="carte">
+            <h3 class="file__titre">Formats</h3>
+            <ul class="classement" id="classement-formats"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Postes de la boutique -->
+      <section class="section">
+        <div class="section__titre">
+          <h2>Postes de la boutique</h2>
+          <span class="chapeau" style="margin: 0; font-size: 0.9rem" id="resume-postes"></span>
+        </div>
+        <div class="carte">
+          <ul class="postes" id="liste-postes"></ul>
+        </div>
+      </section>
+
+      <p class="message message--erreur cache" id="message-erreur" style="margin-top: 1rem"></p>
+    </main>
+
+    <footer class="pied">
+      Symp's Kiosk · <span id="pied-poste"></span>
+      <button class="bouton bouton--discret" id="btn-changer-poste" type="button">
+        Changer le rôle de cet appareil
+      </button>
+    </footer>
+  </div>
+
+  <script type="module" src="/assets/tableau.js"></script>
+</body>
+</html>

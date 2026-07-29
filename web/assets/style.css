@@ -2688,3 +2688,319 @@ body.borne {
   margin-top: 0.2rem;
   background: var(--surface);
 }
+
+/* ===========================================================================
+   Choix du role au lancement
+   =========================================================================== */
+
+.roles {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.role {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1.1rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--surface);
+  color: var(--encre);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: var(--ombre);
+  transition: border-color var(--transition), transform var(--transition),
+    box-shadow var(--transition);
+}
+
+.role:hover:not(:disabled) {
+  border-color: var(--bleu-500);
+  transform: translateY(-2px);
+  box-shadow: var(--ombre-forte);
+}
+
+.role:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.role__icone {
+  width: 46px;
+  height: 46px;
+  fill: none;
+  stroke: var(--bleu-700);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.role__nom {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--bleu-900);
+}
+
+.role__resume {
+  font-size: 0.86rem;
+  color: var(--gris);
+  max-width: 26ch;
+}
+
+/* ===========================================================================
+   Tableau de bord
+   =========================================================================== */
+
+.tuiles {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.tuile {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--surface);
+  box-shadow: var(--ombre);
+}
+
+.tuile--forte {
+  background: var(--bleu-800);
+  border-color: var(--bleu-800);
+}
+
+.tuile__etiquette {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.tuile--forte .tuile__etiquette,
+.tuile--forte .tuile__note {
+  color: color-mix(in srgb, var(--sur-primaire, #fff) 75%, transparent);
+}
+
+.tuile__valeur {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--bleu-800);
+  font-variant-numeric: tabular-nums;
+}
+
+.tuile--forte .tuile__valeur {
+  color: var(--sur-primaire, #fff);
+}
+
+.tuile__note {
+  font-size: 0.82rem;
+  color: var(--gris);
+}
+
+.tuile__note--alerte {
+  color: #9a5b00;
+  font-weight: 600;
+}
+
+.grille-files {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.file__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.file__titre {
+  margin: 0 0 0.9rem;
+  font-size: 1.05rem;
+  color: var(--bleu-900);
+}
+
+.file__entete .file__titre {
+  margin: 0;
+}
+
+/* --- histogramme des sept derniers jours ------------------------------------ */
+
+.histo {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 0.5rem;
+  height: 190px;
+}
+
+.histo__jour {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: end;
+  justify-items: center;
+  gap: 0.35rem;
+  height: 100%;
+}
+
+.histo__valeur {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gris);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* `min-height` garde une trace visible des journees sans recette. */
+.histo__barre {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 8px 8px 3px 3px;
+  background: var(--bleu-200);
+  align-self: end;
+  transition: height var(--transition);
+}
+
+.histo__jour--aujourdhui .histo__barre {
+  background: var(--bleu-800);
+}
+
+.histo__nom {
+  font-size: 0.78rem;
+  color: var(--gris);
+}
+
+.histo__jour--aujourdhui .histo__nom {
+  color: var(--bleu-800);
+  font-weight: 700;
+}
+
+/* --- classements ------------------------------------------------------------- */
+
+.classement {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.classement__ligne {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(60px, 2fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.classement__nom {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.classement__jauge {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bleu-050);
+  overflow: hidden;
+}
+
+.classement__part {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bleu-600);
+}
+
+.classement__chiffre {
+  font-size: 0.82rem;
+  color: var(--gris);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.classement__vide {
+  color: var(--gris);
+  font-size: 0.9rem;
+}
+
+.postes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.poste {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.poste__meta {
+  font-size: 0.8rem;
+  color: var(--gris);
+}
+
+/* ===========================================================================
+   Paiement avant retrait : le QR occupe l'ecran
+   =========================================================================== */
+
+.paiement-geant {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+  justify-items: center;
+  width: min(900px, 100%);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-lg);
+  box-shadow: var(--ombre-forte);
+}
+
+@media (min-width: 820px) {
+  .paiement-geant {
+    grid-template-columns: auto 1fr;
+    text-align: left;
+  }
+}
+
+.qr--plein img {
+  width: min(420px, 78vw);
+  padding: 1rem;
+  border-radius: var(--rayon-lg);
+  background: #fff;
+  border: 1px solid var(--bordure);
+}
+
+.paiement-geant__corps {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+}
+
+.paiement-geant__corps .bloc__note {
+  max-width: 34ch;
+}
+
+/* L'ecran de choix du role a besoin de plus de large que le formulaire de
+   connexion : trois cartes cote a cote, pas un champ de saisie. */
+.enveloppe--roles {
+  width: min(860px, 100% - 2rem);
+}

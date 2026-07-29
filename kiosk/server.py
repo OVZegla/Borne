@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import catalogue, config, licence, qr, reglages, reseau
+from . import catalogue, config, licence, postes, qr, reglages, reseau, tableau
 from .storage import Store, StorageError
 
 STORE = Store()
@@ -224,15 +224,41 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD" and body:
             self.wfile.write(body)
 
-    def _json(self, payload, status: HTTPStatus | int = HTTPStatus.OK) -> None:
+    def _json(
+        self,
+        payload,
+        status: HTTPStatus | int = HTTPStatus.OK,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        self._send(status, body, "application/json; charset=utf-8")
+        self._send(status, body, "application/json; charset=utf-8", headers)
 
     def _error(self, status: HTTPStatus | int, message: str) -> None:
         self._json({"erreur": message}, status)
 
     def _redirect(self, location: str) -> None:
         self._send(HTTPStatus.SEE_OTHER, b"", headers={"Location": location})
+
+    # --- identite de l'appareil -------------------------------------------
+
+    def _cookie(self, nom: str) -> str | None:
+        """Lit un cookie sans dependance : l'en-tete est une liste `a=b; c=d`."""
+        for morceau in (self.headers.get("Cookie") or "").split(";"):
+            cle, _, valeur = morceau.strip().partition("=")
+            if cle == nom:
+                return unquote(valeur)
+        return None
+
+    def _jeton_poste(self) -> str | None:
+        return self._cookie(postes.COOKIE)
+
+    def _poser_cookie_poste(self, jeton: str) -> dict[str, str]:
+        # Pas de `Secure` : la boutique tourne en HTTP sur son reseau local, et
+        # un cookie `Secure` n'y serait jamais renvoye.
+        return {
+            "Set-Cookie": f"{postes.COOKIE}={quote(jeton)}; Path=/; Max-Age=31536000; "
+                          "HttpOnly; SameSite=Lax"
+        }
 
     def log_message(self, fmt: str, *args) -> None:  # moins bavard que le defaut
         if os.environ.get("SYMPS_VERBOSE"):
@@ -277,21 +303,75 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return not licence.etat_actuel().get("utilisable", True)
 
+    PAGES = {
+        "/": ("index.html", "borne"),
+        "/connexion": ("connexion.html", None),
+        "/reglages": ("reglages.html", "reglages"),
+        "/tableau": ("tableau.html", "tableau"),
+        "/recuperer": ("recuperer.html", "reception"),
+        "/impression": ("impression.html", "impression"),
+        # Pages ouvertes depuis le telephone du client : aucun role, le secret
+        # est le jeton contenu dans le QR code.
+        "/envoyer": ("envoyer.html", None),
+        "/paiement": ("paiement.html", None),
+    }
+
+    def _droit_requis(self, method: str, path: str) -> str | None:
+        """Droit exige par une route, ou None si elle est ouverte a tous.
+
+        Restent ouvertes les routes que le telephone d'un client doit atteindre :
+        il n'est pas un poste de la boutique et n'a pas de role.
+        """
+        if path in self.PAGES:
+            return self.PAGES[path][1]
+
+        if path.startswith("/api/sessions"):
+            # Consulter une session ou y deposer une photo : le telephone le fait.
+            if method == "GET" and not path.endswith("/code"):
+                return None
+            if method == "POST" and path.endswith("/images"):
+                return None
+            return "borne"
+
+        if path.startswith("/api/reglages"):
+            return "reglages"
+        if path == "/api/tableau":
+            return "tableau"
+        if path.startswith("/api/depots") or path.startswith("/api/images/") or path == "/r":
+            return "reception"
+        return None
+
+    def _role_bloque(self, method: str, path: str) -> str | None:
+        """Renvoie le droit manquant, ou None si l'appareil peut continuer."""
+        droit = self._droit_requis(method, path)
+        if droit is None:
+            return None
+        return None if postes.a_le_droit(self._jeton_poste(), droit) else droit
+
     def _dispatch(self, method: str, path: str, query: dict) -> None:
-        pages = {
-            "/": "index.html",
-            "/connexion": "connexion.html",
-            "/reglages": "reglages.html",
-            "/envoyer": "envoyer.html",
-            "/paiement": "paiement.html",
-            "/recuperer": "recuperer.html",
-            "/impression": "impression.html",
-        }
+        pages = {chemin: fichier for chemin, (fichier, _) in self.PAGES.items()}
 
         if self._abonnement_bloque(path):
             if path in pages or path == "/":
                 return self._redirect("/connexion")
             return self._error(HTTPStatus.PAYMENT_REQUIRED, "Abonnement requis")
+
+        if method == "POST" and path == "/api/poste":
+            return self._inscrire_poste()
+        if method == "GET" and path == "/api/poste":
+            return self._json(postes.etat(self._jeton_poste()))
+        if method == "DELETE" and path == "/api/poste":
+            postes.oublier(self._jeton_poste())
+            return self._json({"oublie": True})
+
+        if self._role_bloque(method, path) is not None:
+            jeton = self._jeton_poste()
+            if path in pages:
+                # Un appareil sans role va choisir le sien ; un appareil qui a
+                # deja un role revient chez lui plutot que sur un refus sec.
+                return self._redirect(postes.accueil(jeton) if jeton else "/connexion")
+            return self._error(HTTPStatus.FORBIDDEN, "Ce poste n'a pas accès à cette page")
+        postes.vu(self._jeton_poste())
 
         if method == "POST":
             if path == "/api/compte/connexion":
@@ -324,6 +404,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._config()
             if path == "/api/catalogue":
                 return self._json(catalogue.public())
+            if path == "/api/tableau":
+                return self._json(tableau.resume(STORE))
             if path == "/api/reglages":
                 return self._json({**reglages.tout(), "geometries": reglages.GEOMETRIES})
             if path == "/logo-boutique":
@@ -334,6 +416,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json([t.public() for t in STORE.recent()])
             if path == "/api/evenements":
                 return self._events((query.get("session") or [None])[0])
+            if path.startswith("/api/sessions/") and path.endswith("/code"):
+                return self._reveler_code(path[len("/api/sessions/"):-len("/code")])
             if path.startswith("/api/sessions/"):
                 return self._get_session(path[len("/api/sessions/"):])
             if path.startswith("/api/depots/"):
@@ -407,6 +491,8 @@ class Handler(BaseHTTPRequestHandler):
                 "taille_max_mo": config.MAX_FILE_BYTES // (1024 * 1024),
                 "fichiers_max": config.MAX_FILES_PER_TICKET,
                 "types_autorises": sorted(config.ALLOWED_TYPES),
+                "paiement": {"ordre": reglages.tout()["paiement"].get("ordre", "apres")},
+                "poste": postes.etat(self._jeton_poste()),
             }
         )
 
@@ -504,6 +590,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.UNAUTHORIZED, str(exc))
         self._json(active.public())
 
+    def _inscrire_poste(self) -> None:
+        """Un appareil declare ce qu'il est : borne, imprimante ou PC."""
+        recu = self._read_json() or {}
+        try:
+            jeton = postes.inscrire(str(recu.get("role", "")), str(recu.get("nom", "")))
+        except postes.PosteError as exc:
+            return self._error(HTTPStatus.BAD_REQUEST, str(exc))
+        self._json(
+            postes.etat(jeton),
+            HTTPStatus.CREATED,
+            headers=self._poser_cookie_poste(jeton),
+        )
+
     def _open_session(self) -> None:
         """La borne ouvre une session et recoit le lien a mettre dans son QR code."""
         ticket = STORE.create_ticket()
@@ -512,11 +611,35 @@ class Handler(BaseHTTPRequestHandler):
         payload["url_envoi"] = f"{preferred_url(port)}/e?s={ticket.token}"
         self._json(payload, HTTPStatus.CREATED)
 
+    @staticmethod
+    def _paiement_avant() -> bool:
+        """La boutique exige-t-elle le reglement avant de livrer le code ?"""
+        return reglages.tout()["paiement"].get("ordre") == "avant"
+
+    def _code_visible(self, ticket) -> bool:
+        return ticket.paid or not self._paiement_avant()
+
     def _get_session(self, token: str) -> None:
         ticket = STORE.get_by_token(token)
         if ticket is None:
             return self._error(HTTPStatus.NOT_FOUND, "Session inconnue ou expiree")
-        self._json(ticket.session())
+        self._json(ticket.session(self._code_visible(ticket)))
+
+    def _reveler_code(self, token: str) -> None:
+        """Le code de retrait, quand la boutique fait payer d'abord.
+
+        Le refus est le point important : sans cette verification cote serveur,
+        le mode « paiement avant » ne serait qu'un affichage, contournable en
+        lisant la reponse de la validation.
+        """
+        ticket = STORE.get_by_token(token)
+        if ticket is None or not ticket.validated:
+            return self._error(HTTPStatus.NOT_FOUND, "Session inconnue ou expiree")
+        if not self._code_visible(ticket):
+            return self._error(
+                HTTPStatus.PAYMENT_REQUIRED, "Le règlement n'a pas encore été encaissé"
+            )
+        self._json({"code": ticket.code})
 
     def _set_article(self, token: str, image_id: str) -> None:
         """Choix du tirage pour une photo : matiere, format, forme."""
@@ -540,7 +663,7 @@ class Handler(BaseHTTPRequestHandler):
         """L'operateur valide sur la borne : le code de retrait est revele."""
         ticket = STORE.validate(token)
         port = self.server.server_address[1]
-        payload = ticket.session()
+        payload = ticket.session(self._code_visible(ticket))
         payload["url_paiement"] = f"{preferred_url(port)}/p?j={ticket.payment_token}"
         BROKER.publish("depot", ticket.public())  # le poste de reception rafraichit sa liste
         BROKER.publish("validation", payload, canal=token)
@@ -567,7 +690,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.NOT_FOUND, "Aucun depot avec ce code")
         ticket = STORE.mark_paid(ticket.payment_token)
         BROKER.publish("paiement", ticket.public())  # poste de reception
-        BROKER.publish("paiement", ticket.session(), canal=ticket.token)  # la borne
+        # La borne recoit le code avec le paiement : c'est ce qui debloque son
+        # affichage quand la boutique fait payer d'abord.
+        BROKER.publish("paiement", ticket.session(True), canal=ticket.token)
         # Le telephone du client suit l'etat en direct sur le canal de sa commande.
         BROKER.publish("paiement", ticket.paiement(), canal=ticket.payment_token)
         self._json(ticket.paiement())

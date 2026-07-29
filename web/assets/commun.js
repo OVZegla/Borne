@@ -80,14 +80,6 @@ export function ecouterEvenements(gestionnaires, jeton = null) {
   return source;
 }
 
-export function marquerPageActive() {
-  const courant = window.location.pathname.replace(/\/$/, '') || '/';
-  for (const lien of $$('.navigation a')) {
-    const cible = new URL(lien.href).pathname.replace(/\/$/, '') || '/';
-    if (cible === courant) lien.setAttribute('aria-current', 'page');
-  }
-}
-
 export async function config() {
   if (!config._promesse) config._promesse = api('/api/config');
   return config._promesse;

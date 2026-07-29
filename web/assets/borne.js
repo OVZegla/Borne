@@ -57,7 +57,7 @@ function brancherFlux() {
         selection = donnees.image.id;
         afficherApercu();
       },
-      paiement: (donnees) => marquerPaye(donnees?.paiement === 'paye'),
+      paiement: encaisse,
       suppression: rafraichirSession,
       purge: rafraichirSession,
     },
@@ -677,7 +677,7 @@ $('#btn-valider').addEventListener('click', async () => {
   const bouton = $('#btn-valider');
   bouton.disabled = true;
   try {
-    afficherCode(await api(`/api/sessions/${session.token}/valider`, { method: 'POST' }));
+    afficherDepot(await api(`/api/sessions/${session.token}/valider`, { method: 'POST' }));
   } catch (echec) {
     afficherErreur(`Validation impossible : ${echec.message}`);
     bouton.disabled = false;
@@ -688,10 +688,30 @@ $('#btn-recommencer').addEventListener('click', () => window.location.reload());
 
 /* --- code de retrait -------------------------------------------------------- */
 
+let depotEnCours = null;
+
+/* Deux enchaînements possibles après la validation, au choix de la boutique :
+   le code et le QR de règlement ensemble, ou le règlement d'abord et le code
+   seulement après encaissement. Le serveur ne livre pas le code dans le second
+   cas : ce n'est pas qu'un affichage. */
+function afficherDepot(depot) {
+  depotEnCours = depot;
+  if (depot.code_bloque) return void afficherPaiementDabord(depot);
+  afficherCode(depot);
+}
+
+function afficherPaiementDabord(depot) {
+  $('#qr-paiement-geant').src = `/qr.svg?d=${encodeURIComponent(depot.url_paiement)}`;
+  $('#total-a-payer').textContent = prixLisible(depot.total, depot.devise);
+  const nombre = depot.images.length;
+  $('#resume-a-payer').textContent =
+    `${nombre} ${nombre > 1 ? 'tirages commandés' : 'tirage commandé'}`;
+  montrerEtape('etape-paiement');
+}
+
 function afficherCode(depot) {
-  $('#affichage-code').textContent = depot.code;
+  $('#affichage-code').textContent = depot.code || '····';
   $('#qr-paiement').src = `/qr.svg?d=${encodeURIComponent(depot.url_paiement)}`;
-  $('#lien-recuperer').href = `/recuperer?code=${depot.code}`;
   $('#total-commande').textContent = prixLisible(depot.total, depot.devise);
 
   const nombre = depot.images.length;
@@ -702,6 +722,17 @@ function afficherCode(depot) {
   $('#galerie-finale').replaceChildren(...depot.images.map(carteImage));
   marquerPaye(depot.paiement === 'paye');
   montrerEtape('etape-code');
+}
+
+/** Le règlement vient d'être encaissé au comptoir : le code se débloque. */
+function encaisse(donnees) {
+  const paye = donnees?.paiement === 'paye';
+  if (paye && depotEnCours && !depotEnCours.code) {
+    // Le code arrive avec l'événement de paiement, jamais avant.
+    depotEnCours = { ...depotEnCours, ...donnees, code_bloque: false };
+    return void afficherCode(depotEnCours);
+  }
+  marquerPaye(paye);
 }
 
 function marquerPaye(paye) {
@@ -733,7 +764,12 @@ function carteImage(image) {
 
 /* --- navigation ------------------------------------------------------------- */
 
-const ETAPES = { 'etape-attente': 'photo', 'etape-apercu': 'perso', 'etape-code': 'validation' };
+const ETAPES = {
+  'etape-attente': 'photo',
+  'etape-apercu': 'perso',
+  'etape-paiement': 'validation',
+  'etape-code': 'validation',
+};
 const ORDRE = ['photo', 'perso', 'validation'];
 
 function montrerEtape(identifiant) {

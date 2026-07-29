@@ -91,6 +91,9 @@ DEFAUTS = {
     },
     "paiement": {
         "mode": "comptoir",   # « comptoir » ou « lien »
+        # Quand le client paie : « apres » lui donne le code et le QR de reglement
+        # ensemble, « avant » garde le code cache jusqu'a l'encaissement.
+        "ordre": "apres",
         "lien": "",
         "libelle": "",
     },
@@ -351,13 +354,21 @@ def _valider_paiement(recu: dict) -> dict:
     mode = str(recu.get("mode") or "comptoir")
     if mode not in ("comptoir", "lien"):
         raise ReglageError("Mode de paiement inconnu")
+    ordre = str(recu.get("ordre") or "apres")
+    if ordre not in ("avant", "apres"):
+        raise ReglageError("Ordre de paiement inconnu")
     lien = str(recu.get("lien") or "").strip()
     if mode == "lien":
         if not lien.startswith(("http://", "https://")):
             raise ReglageError("Le lien de paiement doit commencer par https://")
         if len(lien) > 500:
             raise ReglageError("Lien de paiement trop long")
-    return {"mode": mode, "lien": lien, "libelle": str(recu.get("libelle") or "").strip()[:60]}
+    return {
+        "mode": mode,
+        "ordre": ordre,
+        "lien": lien,
+        "libelle": str(recu.get("libelle") or "").strip()[:60],
+    }
 
 
 def enregistrer(recu: dict) -> dict:

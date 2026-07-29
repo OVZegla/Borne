@@ -1,8 +1,10 @@
 /* Page d'impression : une image en grand, prête à partir chez l'imprimante. */
 
-import { $, api, marquerPageActive, poids } from './commun.js';
+import { $, api, poids } from './commun.js';
+import { brancherChangementDePoste, poserNavigation } from './navigation.js';
 
-marquerPageActive();
+poserNavigation();
+brancherChangementDePoste();
 
 const parametres = new URLSearchParams(window.location.search);
 const identifiant = parametres.get('image');

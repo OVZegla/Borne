@@ -20,10 +20,7 @@
           <span class="marque__sous">Réception</span>
         </span>
       </a>
-      <nav class="navigation">
-        <a href="/">Borne</a>
-        <a href="/recuperer">Réception</a>
-      </nav>
+      <nav class="navigation" id="navigation"></nav>
     </header>
 
     <main>
@@ -83,8 +80,11 @@
     </main>
 
     <footer class="pied">
-      Symp's Kiosk · les dépôts sont supprimés automatiquement après
-      <span id="retention">24</span> h
+      Symp's Kiosk · <span id="pied-poste"></span> · les dépôts sont supprimés
+      automatiquement après <span id="retention">24</span> h
+      <button class="bouton bouton--discret" id="btn-changer-poste" type="button">
+        Changer le rôle de cet appareil
+      </button>
     </footer>
   </div>
 

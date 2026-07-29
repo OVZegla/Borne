@@ -1,8 +1,9 @@
 /* Page de récupération : saisie du code, liste en direct, impression. */
 
+import { brancherChangementDePoste, poserNavigation } from './navigation.js';
 import {
   $, $$, api, config, ecouterEvenements, element, estAffichable, extension,
-  ilYA, marquerPageActive, poids, prixLisible,
+  ilYA, poids, prixLisible,
 } from './commun.js';
 
 const cases = $$('#formulaire-code input');
@@ -11,7 +12,8 @@ const listeDepots = $('#liste-depots');
 
 let depotAffiche = null;
 
-marquerPageActive();
+poserNavigation();
+brancherChangementDePoste();
 
 config()
   .then((valeurs) => { $('#retention').textContent = valeurs.retention_heures; })
