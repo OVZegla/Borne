@@ -7,12 +7,14 @@
   <title>Symp's Kiosk — Borne</title>
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/theme.css">
 </head>
 <body>
   <div class="enveloppe">
     <header class="entete">
       <a class="marque" href="/">
         <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
+        <img class="marque__boutique cache" id="logo-boutique" alt="">
         <span class="marque__texte">
           <span class="marque__nom">Symp's Kiosk</span>
           <span class="marque__sous">Borne</span>
@@ -38,10 +40,7 @@
         <div class="carte carte--scan">
           <figure class="qr qr--geant">
             <img id="image-qr" alt="QR code pour envoyer vos photos">
-            <figcaption>
-              Ou saisissez cette adresse dans votre navigateur&nbsp;:<br>
-              <span class="url-reseau" id="url-envoi"></span>
-            </figcaption>
+            <figcaption>Visez ce code avec l'appareil photo de votre téléphone</figcaption>
           </figure>
 
           <ol class="etapes">
@@ -90,17 +89,21 @@
               <div class="choix__liste" id="liste-matieres"></div>
             </fieldset>
 
+            <fieldset class="choix" id="bloc-orientation">
+              <legend class="choix__titre">Orientation</legend>
+              <div class="choix__liste" id="liste-orientations"></div>
+              <p class="choix__note cache" id="note-orientation"></p>
+            </fieldset>
+
             <fieldset class="choix">
               <legend class="choix__titre">Dimensions <span class="choix__unite">en cm</span></legend>
               <div class="choix__liste" id="liste-formats"></div>
             </fieldset>
 
             <fieldset class="choix" id="bloc-formes">
-              <legend class="choix__titre">Forme</legend>
+              <legend class="choix__titre">Coupe</legend>
               <div class="choix__liste" id="liste-formes"></div>
-              <p class="choix__note cache" id="note-forme">
-                La toile est tendue sur châssis : elle garde son format d'origine.
-              </p>
+              <p class="choix__note cache" id="note-forme"></p>
             </fieldset>
 
             <div class="prix" id="bloc-prix">

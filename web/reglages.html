@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00287E">
+  <title>Symp's Kiosk — Réglages de la boutique</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/theme.css">
+</head>
+<body>
+  <div class="enveloppe">
+    <header class="entete">
+      <a class="marque" href="/">
+        <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
+        <img class="marque__boutique cache" id="logo-boutique" alt="">
+        <span class="marque__texte">
+          <span class="marque__nom">Symp's Kiosk</span>
+          <span class="marque__sous">Réglages</span>
+        </span>
+      </a>
+      <nav class="navigation">
+        <a href="/">Borne</a>
+        <a href="/recuperer">Réception</a>
+        <a href="/reglages">Réglages</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="centre">
+        <h1 class="titre">Réglages de la boutique</h1>
+        <p class="chapeau">
+          Tout ce qui suit vous appartient : votre marque, votre catalogue, vos
+          tarifs. Les changements s'appliquent aussitôt sur tous les postes.
+        </p>
+      </div>
+
+      <!-- Marque -->
+      <section class="carte section">
+        <div class="section__titre"><h2>Votre marque</h2></div>
+
+        <label class="champ">
+          <span class="champ__libelle">Nom de la boutique</span>
+          <input type="text" id="nom-boutique" maxlength="60" placeholder="Photo Studio Lyon">
+        </label>
+
+        <div class="grille-deux">
+          <label class="champ">
+            <span class="champ__libelle">Couleur principale</span>
+            <span class="couleur">
+              <input type="color" id="couleur-primaire">
+              <input type="text" id="couleur-primaire-texte" maxlength="7" spellcheck="false">
+            </span>
+          </label>
+          <label class="champ">
+            <span class="champ__libelle">Couleur d'accent</span>
+            <span class="couleur">
+              <input type="color" id="couleur-accent">
+              <input type="text" id="couleur-accent-texte" maxlength="7" spellcheck="false">
+            </span>
+          </label>
+        </div>
+
+        <div class="champ">
+          <span class="champ__libelle">Votre logo</span>
+          <div class="logo-zone">
+            <img id="apercu-logo" class="logo-zone__apercu cache" alt="Logo de la boutique">
+            <span id="logo-vide" class="logo-zone__vide">Aucun logo</span>
+            <div class="actions" style="justify-content: flex-start">
+              <button class="bouton bouton--secondaire" id="btn-logo" type="button">
+                Choisir un fichier
+              </button>
+              <button class="bouton bouton--discret cache" id="btn-logo-suppr" type="button">
+                Retirer
+              </button>
+              <input type="file" id="champ-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="cache-champ">
+            </div>
+          </div>
+          <p class="choix__note">
+            PNG, JPEG, SVG ou WebP, 2 Mo maximum. Votre logo s'affiche à côté de
+            celui de Symp's, qui reste présent sur toutes les pages.
+          </p>
+        </div>
+      </section>
+
+      <!-- Matières -->
+      <section class="carte section">
+        <div class="section__titre">
+          <h2>Matières</h2>
+          <button class="bouton bouton--secondaire" id="btn-ajout-matiere" type="button">
+            Ajouter une matière
+          </button>
+        </div>
+        <p class="choix__note" style="margin-bottom: 1rem">
+          Le prix d'un tirage vaut&nbsp;: <strong>prix du format × coefficient de la
+          matière + supplément de coupe</strong>. Un coefficient de 1 vend au prix
+          du format.
+        </p>
+        <div class="tableau" id="tableau-matieres"></div>
+      </section>
+
+      <!-- Formats -->
+      <section class="carte section">
+        <div class="section__titre">
+          <h2>Formats</h2>
+          <button class="bouton bouton--secondaire" id="btn-ajout-format" type="button">
+            Ajouter un format
+          </button>
+        </div>
+        <p class="choix__note" style="margin-bottom: 1rem">
+          Saisissez les dimensions en portrait (largeur inférieure à la hauteur)&nbsp;:
+          le client choisira lui-même portrait ou paysage sur la borne.
+        </p>
+        <div class="tableau" id="tableau-formats"></div>
+      </section>
+
+      <!-- Coupes -->
+      <section class="carte section">
+        <div class="section__titre">
+          <h2>Coupes</h2>
+          <button class="bouton bouton--secondaire" id="btn-ajout-forme" type="button">
+            Ajouter une coupe
+          </button>
+        </div>
+        <label class="bascule">
+          <input type="checkbox" id="formes-actives">
+          <span>Proposer des découpes aux clients</span>
+        </label>
+        <p class="choix__note" style="margin: 0.5rem 0 1rem">
+          Décochez si vous n'avez pas de machine de découpe&nbsp;: le menu
+          disparaît entièrement de la borne et tous les tirages restent
+          rectangulaires.
+        </p>
+        <div class="tableau" id="tableau-formes"></div>
+      </section>
+
+      <!-- Paiement -->
+      <section class="carte section">
+        <div class="section__titre"><h2>Encaissement</h2></div>
+        <label class="champ">
+          <span class="champ__libelle">Mode</span>
+          <select id="mode-paiement">
+            <option value="comptoir">Règlement au comptoir</option>
+            <option value="lien">Lien de paiement (PayPal, SumUp, Stripe…)</option>
+          </select>
+        </label>
+        <div id="bloc-lien" class="cache">
+          <label class="champ">
+            <span class="champ__libelle">Adresse du lien de paiement</span>
+            <input type="url" id="lien-paiement" placeholder="https://paypal.me/votreboutique">
+          </label>
+          <label class="champ">
+            <span class="champ__libelle">Intitulé du bouton</span>
+            <input type="text" id="libelle-paiement" maxlength="60" placeholder="Payer avec PayPal">
+          </label>
+          <p class="message message--info">
+            Le client est envoyé sur votre page de paiement. Le règlement doit
+            ensuite être <strong>confirmé à la réception</strong>&nbsp;: sans
+            raccordement à l'API de votre prestataire, la borne ne peut pas
+            savoir seule qu'un paiement a abouti.
+          </p>
+        </div>
+      </section>
+
+      <div class="barre-enregistrement">
+        <span class="barre-enregistrement__etat" id="etat-enregistrement"></span>
+        <div class="actions">
+          <button class="bouton bouton--discret" id="btn-defaut" type="button">
+            Revenir aux valeurs d'origine
+          </button>
+          <button class="bouton bouton--principal bouton--large" id="btn-enregistrer" type="button">
+            Enregistrer
+          </button>
+        </div>
+      </div>
+
+      <p class="message message--erreur cache" id="message-erreur" style="margin-top: 1rem"></p>
+    </main>
+
+    <footer class="pied">Symp's Kiosk</footer>
+  </div>
+
+  <script type="module" src="/assets/reglages.js"></script>
+</body>
+</html>

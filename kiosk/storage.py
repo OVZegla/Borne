@@ -31,16 +31,26 @@ class StorageError(Exception):
 
 @dataclass
 class Article:
-    """Le tirage commande pour une photo : matiere, format, forme et prix."""
+    """Le tirage commande pour une photo : matiere, format, coupe, orientation."""
 
     matiere: str
     format: str
     forme: str
     prix: float
+    orientation: str = catalogue.PORTRAIT
 
     def public(self) -> dict:
         data = asdict(self)
-        data["libelle"] = catalogue.libelle(self.matiere, self.format, self.forme)
+        try:
+            data["libelle"] = catalogue.libelle(
+                self.matiere, self.format, self.forme, self.orientation
+            )
+            largeur, hauteur = catalogue.dimensions(self.format, self.orientation)
+            data["largeur"], data["hauteur"] = largeur, hauteur
+        except (KeyError, catalogue.CatalogueError):
+            # La boutique a pu retirer cette matiere ou ce format depuis la commande.
+            data["libelle"] = f"{self.matiere} · {self.format}"
+            data["largeur"] = data["hauteur"] = None
         return data
 
 
@@ -284,8 +294,16 @@ class Store:
             self._save()
             return ticket
 
-    def set_article(self, token: str, image_id: str, matiere: str, format_: str, forme: str) -> Image:
-        """Choisit le tirage d'une photo (matiere, format, forme) et son prix."""
+    def set_article(
+        self,
+        token: str,
+        image_id: str,
+        matiere: str,
+        format_: str,
+        forme: str,
+        orientation: str = catalogue.PORTRAIT,
+    ) -> Image:
+        """Choisit le tirage d'une photo et calcule son prix."""
         with self._lock:
             ticket = self.get_by_token(token)
             if ticket is None:
@@ -298,11 +316,14 @@ class Store:
                 raise StorageError("Photo introuvable dans cette session")
 
             try:
-                montant = catalogue.prix(matiere, format_, forme)
+                montant = catalogue.prix(matiere, format_, forme, orientation)
             except catalogue.CatalogueError as exc:
                 raise StorageError(str(exc)) from exc
 
-            image.article = Article(matiere=matiere, format=format_, forme=forme, prix=montant)
+            image.article = Article(
+                matiere=matiere, format=format_, forme=forme,
+                prix=montant, orientation=orientation,
+            )
             self._save()
             return image
 

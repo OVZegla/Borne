@@ -32,6 +32,17 @@ function afficher() {
     ),
   );
   $('#total').textContent = prixLisible(commande.total, commande.devise);
+
+  // La boutique peut envoyer ses clients vers son propre moyen de paiement.
+  const config = commande.config || {};
+  if (config.mode === 'lien' && config.lien) {
+    $('#lien-externe').href = config.lien;
+    $('#lien-externe').textContent = config.libelle || 'Payer maintenant';
+    $('#bloc-externe').classList.remove('cache');
+    $('#btn-payer').textContent = "J'ai réglé ma commande";
+    $('#btn-payer').className = 'bouton bouton--secondaire bouton--large';
+  }
+
   $('#etape-commande').classList.remove('cache');
 }
 

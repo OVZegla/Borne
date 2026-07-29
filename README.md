@@ -110,15 +110,23 @@ grand, avec les options de tirage à côté :
 
 - **Matière** — Plexiglas, Métal, Dibond, Toile, Cadre, Papier, Bois, Verre
 - **Dimensions** — 25×30, 30×40, 40×50, 40×60, 50×70, 20×20, 30×30, 40×40, 50×50 cm
-- **Forme** — Format initial, Diamant, Triangle, Cercle
+- **Orientation** — portrait ou paysage, **présélectionnée d'après la photo**
+- **Coupe** — Format initial, Diamant, Triangle, Cercle
 
-L'aperçu prend les proportions du format choisi et la découpe demandée : le
-client voit le tirage tel qu'il sera, recadrage compris. Le prix s'actualise à
-chaque changement.
+L'aperçu prend les proportions du format choisi, son orientation et la découpe
+demandée : le client voit le tirage tel qu'il sera, recadrage compris. Le prix
+s'actualise à chaque changement, et l'orientation ne le change jamais.
 
-> **La Toile ne propose pas de forme** : tendue sur châssis, elle garde son
-> format d'origine. Les trois autres formes se grisent automatiquement, et le
-> serveur refuse la combinaison même si on la force.
+> **L'orientation évite le mauvais recadrage** : une photo paysage bascule
+> d'elle-même sur un cadre paysage. Un format carré n'a pas d'orientation, le
+> choix disparaît alors.
+
+> **Une matière qui ne se découpe pas** (une toile sur châssis) ramène la coupe
+> au rectangle. Les autres se grisent, et le serveur refuse la combinaison même
+> si on la force.
+
+Ces listes sont celles livrées par défaut : chaque boutique compose les siennes
+dans les **réglages**.
 
 Avec plusieurs photos, une bande de vignettes permet de passer de l'une à
 l'autre ; celles dont le tirage n'est pas encore choisi ont un contour orange.
@@ -142,21 +150,17 @@ Pas de QR code lisible ? L'adresse est écrite en toutes lettres sous le code.
 Après validation, la borne affiche un second QR code, distinct de celui d'envoi.
 Le client le scanne et arrive sur le récapitulatif de sa commande avec le total.
 
-> ### ⚠️ Deux choses à régler avant d'ouvrir au public
->
-> **1. Les prix sont des valeurs de départ.** Toute la grille est dans
-> `kiosk/catalogue.py` : `PRIX_FORMAT` (prix de base par format),
-> `COEFFICIENT_MATIERE` (multiplicateur par matière) et `SUPPLEMENT_FORME`
-> (supplément de découpe). Un tirage vaut
-> `PRIX_FORMAT × COEFFICIENT_MATIERE + SUPPLEMENT_FORME`. Aucun autre fichier
-> n'est à toucher.
->
-> **2. L'encaissement n'est pas branché.** Le bouton « Régler ma commande » se
-> contente de marquer la commande comme payée et d'en informer la réception.
-> C'est utilisable tel quel si vous encaissez au comptoir, mais ce n'est pas un
-> paiement en ligne. Pour en brancher un vrai (Stripe, SumUp…), tout se passe
-> dans `_pay()` de `kiosk/server.py` : c'est le seul endroit qui bascule le
-> statut, et la vérification doit rester côté serveur.
+Deux modes, au choix dans les **réglages** :
+
+- **Règlement au comptoir** — le bouton signale le paiement à la réception ;
+- **Lien de paiement** — le client est envoyé vers votre page PayPal, SumUp ou
+  Stripe.
+
+> **Dans les deux cas, le règlement est confirmé à la réception.** Sans
+> raccordement à l'API de votre prestataire, la borne ne peut pas savoir seule
+> qu'un paiement a abouti. Pour une confirmation automatique, tout se passe dans
+> `_pay()` de `kiosk/server.py` : c'est le seul endroit qui bascule le statut, et
+> la vérification doit rester côté serveur.
 
 ### Sur le poste d'impression
 
@@ -288,6 +292,27 @@ découverte réseau est prévu pour devenir celui du compte. Une vérification h
 ligne (signature vérifiable sans réseau, avec période de grâce) évite qu'une
 coupure Internet empêche la boutique de vendre.
 
+## Personnaliser la boutique
+
+La page **Réglages** (`/reglages`) appartient au commerçant. Tout ce qui s'y
+trouve s'applique aussitôt sur tous les postes :
+
+- **Marque** — nom de la boutique, couleur principale, couleur d'accent, et son
+  logo. Celui de Symp's et la mention « Symp's Kiosk » restent présents à côté,
+  sur toutes les pages.
+- **Matières** — librement créées : un nom, un coefficient de prix, et le fait
+  qu'elles se découpent ou non. Rien n'est imposé.
+- **Formats** — librement créés : nom, largeur, hauteur et prix de base.
+  Saisissez-les en portrait, le client choisit lui-même portrait ou paysage.
+- **Coupes** — librement créées : un nom maison (« Hublot »…), une géométrie
+  parmi celles que la borne sait dessiner, et un supplément. **Une case unique
+  supprime tout le menu** pour une boutique sans machine de découpe : le serveur
+  refuse alors toute découpe, même forcée par l'API.
+- **Encaissement** — au comptoir, ou vers votre propre lien de paiement.
+
+Le prix d'un tirage vaut toujours
+`prix du format × coefficient de la matière + supplément de coupe`.
+
 ## Remplacer le logo
 
 L'en-tête de toutes les pages affiche `web/assets/logo-symps.svg`. Ce fichier est
@@ -312,7 +337,8 @@ Symp's Kiosk.command   lanceur double-cliquable depuis le Finder
 kiosk/
   config.py            réglages et variables d'environnement
   reseau.py            appairage automatique des machines en LAN
-  catalogue.py         matières, formats, formes ET GRILLE DE PRIX
+  reglages.py          réglages de la boutique : marque, catalogue, tarifs
+  catalogue.py         calcul des prix et des libellés, orientation
   server.py            serveur HTTP, routes, flux temps réel (SSE)
   storage.py           dépôts, articles, paiement, expiration
   imagemeta.py         dimensions lues dans les en-têtes (sans Pillow)
@@ -320,6 +346,7 @@ kiosk/
   licence.py           abonnement : activation, licence signée, hors ligne
 web/
   connexion.html       écran de connexion à l'abonnement
+  reglages.html        personnalisation : marque, catalogue, encaissement
   index.html           la borne : QR, photos en grand, choix du tirage, code
   envoyer.html         le téléphone : envoi des photos après scan du QR
   paiement.html        le téléphone : récapitulatif et règlement
@@ -343,7 +370,10 @@ utilisé pour le retrait.
 | `POST` | `/api/sessions/<jeton>/images` | envoie une photo (corps = octets bruts) |
 | `POST` | `/api/sessions/<jeton>/images/<id>/article` | choisit matière, format et forme |
 | `POST` | `/api/sessions/<jeton>/valider` | clôture le dépôt et révèle le code |
-| `GET` | `/api/catalogue` | matières, formats, formes et grille de prix |
+| `GET` | `/api/catalogue` | matières, formats, coupes et grille de prix |
+| `GET` `POST` `DELETE` | `/api/reglages` | réglages de la boutique |
+| `POST` `DELETE` | `/api/reglages/logo` | logo de la boutique |
+| `GET` | `/assets/theme.css` | couleurs de la boutique, feuille générée |
 | `GET` | `/api/paiement/<jeton>` | récapitulatif de la commande et son statut |
 | `POST` | `/api/paiement/<jeton>/regler` | enregistre le règlement |
 | `DELETE` | `/api/sessions/<jeton>` | abandonne la session en cours |

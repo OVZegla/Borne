@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import catalogue, config, licence, qr, reseau
+from . import catalogue, config, licence, qr, reglages, reseau
 from .storage import Store, StorageError
 
 STORE = Store()
@@ -96,6 +96,25 @@ def preferred_url(port: int) -> str:
     addresses = local_addresses()
     host = addresses[0] if addresses else "localhost"
     return f"http://{host}:{port}"
+
+
+def _melanger(couleur: str, vers: int, part: float) -> str:
+    """Rapproche une couleur du noir ou du blanc, pour deriver une palette."""
+    couleur = couleur.lstrip("#")
+    canaux = [int(couleur[i:i + 2], 16) for i in (0, 2, 4)]
+    melange = [round(c + (vers - c) * part) for c in canaux]
+    return "#" + "".join(f"{max(0, min(255, c)):02x}" for c in melange)
+
+
+def _assombrir(couleur: str, facteur: float) -> str:
+    """facteur < 1 assombrit, facteur > 1 eclaircit legerement."""
+    if facteur <= 1:
+        return _melanger(couleur, 0, 1 - facteur)
+    return _melanger(couleur, 255, min(1.0, facteur - 1))
+
+
+def _eclaircir(couleur: str, part: float) -> str:
+    return _melanger(couleur, 255, part)
 
 
 # --- serveur -------------------------------------------------------------------
@@ -187,6 +206,7 @@ class Handler(BaseHTTPRequestHandler):
         pages = {
             "/": "index.html",
             "/connexion": "connexion.html",
+            "/reglages": "reglages.html",
             "/envoyer": "envoyer.html",
             "/paiement": "paiement.html",
             "/recuperer": "recuperer.html",
@@ -210,6 +230,8 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET":
             if path in pages:
                 return self._serve_file(config.WEB_DIR / pages[path])
+            if path == "/assets/theme.css":  # feuille generee, avant les fichiers
+                return self._theme()
             if path.startswith("/assets/"):
                 return self._serve_asset(path)
             if path == "/e":  # lien court encode dans le QR code de la borne
@@ -227,6 +249,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._config()
             if path == "/api/catalogue":
                 return self._json(catalogue.public())
+            if path == "/api/reglages":
+                return self._json({**reglages.tout(), "geometries": reglages.GEOMETRIES})
+            if path == "/logo-boutique":
+                return self._logo_boutique()
             if path.startswith("/api/paiement/"):
                 return self._get_payment(path[len("/api/paiement/"):])
             if path == "/api/depots":
@@ -256,6 +282,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self._set_article(token, fin[: -len("/article")])
             if path.startswith("/api/paiement/") and path.endswith("/regler"):
                 return self._pay(path[len("/api/paiement/"):-len("/regler")])
+            if path == "/api/reglages":
+                return self._enregistrer_reglages()
+            if path == "/api/reglages/logo":
+                return self._televerser_logo()
 
         elif method == "DELETE":
             if path == "/api/depots":
@@ -273,6 +303,12 @@ class Handler(BaseHTTPRequestHandler):
                     return self._error(HTTPStatus.NOT_FOUND, "Depot introuvable")
                 BROKER.publish("suppression", {"code": code})
                 return self._json({"supprime": code})
+            if path == "/api/reglages":
+                valeurs = reglages.reinitialiser()
+                BROKER.publish("reglages", {"maj": True})
+                return self._json(valeurs)
+            if path == "/api/reglages/logo":
+                return self._supprimer_logo()
             if path.startswith("/api/images/"):
                 image_id = path[len("/api/images/"):]
                 return self._delete_image(image_id)
@@ -287,6 +323,8 @@ class Handler(BaseHTTPRequestHandler):
             {
                 "marque": config.BRAND_NAME,
                 "version": config.VERSION,
+                "boutique": reglages.tout()["boutique"],
+                "theme": reglages.tout()["theme"],
                 "couleur": config.BRAND_COLOR,
                 "urls": base_urls(port),
                 "url_reseau": preferred_url(port),
@@ -296,6 +334,94 @@ class Handler(BaseHTTPRequestHandler):
                 "types_autorises": sorted(config.ALLOWED_TYPES),
             }
         )
+
+    # --- personnalisation de la boutique ----------------------------------
+
+    def _theme(self) -> None:
+        """Feuille de style generee : les couleurs choisies par la boutique."""
+        theme = reglages.tout()["theme"]
+        css = (
+            ":root{\n"
+            f"  --bleu-800: {theme['primaire']};\n"
+            f"  --bleu-900: {_assombrir(theme['primaire'], 0.72)};\n"
+            f"  --bleu-700: {_assombrir(theme['primaire'], 1.22)};\n"
+            f"  --bleu-600: {theme['accent']};\n"
+            f"  --bleu-500: {_eclaircir(theme['accent'], 0.25)};\n"
+            f"  --bleu-200: {_eclaircir(theme['accent'], 0.62)};\n"
+            f"  --bleu-100: {_eclaircir(theme['accent'], 0.80)};\n"
+            f"  --bleu-050: {_eclaircir(theme['accent'], 0.93)};\n"
+            "}\n"
+        )
+        self._send(HTTPStatus.OK, css.encode("utf-8"), "text/css; charset=utf-8")
+
+    def _logo_boutique(self) -> None:
+        nom = reglages.tout()["boutique"].get("logo")
+        if not nom:
+            return self._error(HTTPStatus.NOT_FOUND, "Aucun logo de boutique")
+        chemin = (config.DATA_DIR / "marque" / nom).resolve()
+        racine = (config.DATA_DIR / "marque").resolve()
+        if not str(chemin).startswith(str(racine) + os.sep):
+            return self._error(HTTPStatus.FORBIDDEN, "Chemin refuse")
+        try:
+            donnees = chemin.read_bytes()
+        except OSError:
+            return self._error(HTTPStatus.NOT_FOUND, "Logo introuvable")
+        type_mime = mimetypes.guess_type(nom)[0] or "image/png"
+        self._send(HTTPStatus.OK, donnees, type_mime)
+
+    def _enregistrer_reglages(self) -> None:
+        recu = self._read_json()
+        if recu is None:
+            return self._error(HTTPStatus.BAD_REQUEST, "Corps JSON attendu")
+        try:
+            valeurs = reglages.enregistrer(recu)
+        except reglages.ReglageError as exc:
+            return self._error(HTTPStatus.BAD_REQUEST, str(exc))
+        BROKER.publish("reglages", {"maj": True})
+        self._json(valeurs)
+
+    def _televerser_logo(self) -> None:
+        longueur = int(self.headers.get("Content-Length") or 0)
+        if longueur <= 0:
+            return self._error(HTTPStatus.BAD_REQUEST, "Fichier manquant")
+        if longueur > 2 * 1024 * 1024:
+            self._drain(longueur)
+            self.close_connection = True
+            return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Logo trop lourd (max 2 Mo)")
+
+        donnees = self._read_exactly(longueur)
+        if donnees is None:
+            return self._error(HTTPStatus.BAD_REQUEST, "Transfert interrompu")
+
+        mime = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        extensions = {"image/png": ".png", "image/jpeg": ".jpg",
+                      "image/svg+xml": ".svg", "image/webp": ".webp"}
+        if mime not in extensions:
+            return self._error(HTTPStatus.BAD_REQUEST, "Format accepte : PNG, JPEG, SVG ou WebP")
+
+        dossier = config.DATA_DIR / "marque"
+        dossier.mkdir(parents=True, exist_ok=True)
+        for ancien in dossier.glob("logo.*"):
+            try:
+                ancien.unlink()
+            except OSError:
+                pass
+        nom = "logo" + extensions[mime]
+        (dossier / nom).write_bytes(donnees)
+        reglages.definir_logo(nom)
+        BROKER.publish("reglages", {"maj": True})
+        self._json({"logo": nom})
+
+    def _supprimer_logo(self) -> None:
+        dossier = config.DATA_DIR / "marque"
+        for ancien in dossier.glob("logo.*"):
+            try:
+                ancien.unlink()
+            except OSError:
+                pass
+        reglages.definir_logo(None)
+        BROKER.publish("reglages", {"maj": True})
+        self._json({"logo": None})
 
     def _connexion(self) -> None:
         """L'operateur saisit ses identifiants d'abonnement sur cette machine."""
@@ -337,6 +463,7 @@ class Handler(BaseHTTPRequestHandler):
             str(choix.get("matiere", "")),
             str(choix.get("format", "")),
             str(choix.get("forme", "initial")),
+            str(choix.get("orientation", catalogue.PORTRAIT)),
         )
         BROKER.publish("article", {"image": image.public()}, canal=token)
         self._json(image.public())
@@ -355,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
         ticket = STORE.get_by_payment(jeton)
         if ticket is None or not ticket.validated:
             return self._error(HTTPStatus.NOT_FOUND, "Commande inconnue ou expiree")
-        self._json(ticket.paiement())
+        self._json({**ticket.paiement(), "config": reglages.tout()["paiement"]})
 
     def _pay(self, jeton: str) -> None:
         """Enregistre le reglement.

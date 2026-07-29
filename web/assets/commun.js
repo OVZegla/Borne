@@ -101,3 +101,18 @@ export async function catalogue() {
 export function prixLisible(montant, devise = '€') {
   return `${Number(montant).toFixed(2).replace('.', ',')} ${devise}`;
 }
+
+
+/* Le logo de la boutique est optionnel : on ne le demande que s'il existe,
+   pour ne pas laisser une requete en echec sur chaque page. */
+const _logoBoutique = document.getElementById('logo-boutique');
+if (_logoBoutique) {
+  config()
+    .then((reglages) => {
+      if (!reglages?.boutique?.logo) return;
+      _logoBoutique.src = '/logo-boutique';
+      _logoBoutique.alt = reglages.boutique.nom || '';
+      _logoBoutique.classList.remove('cache');
+    })
+    .catch(() => {});
+}

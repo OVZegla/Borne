@@ -13,7 +13,7 @@ let cat = null; // catalogue : matières, formats, formes, grille de prix
 let session = null; // { token, images: [] }
 let flux = null;
 let selection = null; // identifiant de la photo affichée en grand
-let brouillon = { matiere: null, format: null, forme: 'initial' };
+let brouillon = { matiere: null, format: null, forme: null, orientation: 'portrait' };
 
 marquerPageActive();
 demarrer();
@@ -31,7 +31,6 @@ async function demarrer() {
     const ouverte = await api('/api/sessions', { method: 'POST' });
     session = { token: ouverte.token, images: [] };
     $('#image-qr').src = `/qr.svg?d=${encodeURIComponent(ouverte.url_envoi)}`;
-    $('#url-envoi').textContent = ouverte.url_envoi;
     brancherFlux();
   } catch (echec) {
     afficherErreur(`Impossible d'ouvrir une session : ${echec.message}`);
@@ -81,7 +80,6 @@ function construireOptions() {
     ...cat.matieres.map((m) =>
       pastilleChoix(m.nom, () => {
         brouillon.matiere = m.cle;
-        if (!m.formes) brouillon.forme = 'initial';
         appliquerChoix();
       }, () => brouillon.matiere === m.cle),
     ),
@@ -101,9 +99,32 @@ function construireOptions() {
       pastilleChoix(f.nom, () => {
         brouillon.forme = f.cle;
         appliquerChoix();
-      }, () => brouillon.forme === f.cle, `forme-${f.cle}`),
+      }, () => brouillon.forme === f.cle, `forme-${f.geometrie}`),
     ),
   );
+
+  $('#liste-orientations').replaceChildren(
+    ...[['portrait', 'Portrait'], ['paysage', 'Paysage']].map(([cle, nom]) =>
+      pastilleChoix(nom, () => {
+        brouillon.orientation = cle;
+        appliquerChoix();
+      }, () => brouillon.orientation === cle, `orientation-${cle}`),
+    ),
+  );
+
+  // Une boutique sans machine de découpe masque entièrement ce choix.
+  $('#bloc-formes').classList.toggle('cache', !cat.formes_actives || cat.formes.length < 2);
+  brouillon.forme = cat.formes[0]?.cle ?? null;
+}
+
+/** Le format initial du client : on part de l'orientation de sa photo. */
+function orientationNaturelle(photo) {
+  if (!photo?.width || !photo?.height) return 'portrait';
+  return photo.width > photo.height ? 'paysage' : 'portrait';
+}
+
+function estCarre(cleFormat) {
+  return Boolean(cat.formats.find((f) => f.cle === cleFormat)?.carre);
 }
 
 function pastilleChoix(libelle, auClic, estActif, classeSup = '') {
@@ -123,14 +144,24 @@ function pastilleChoix(libelle, auClic, estActif, classeSup = '') {
 function appliquerChoix(enregistrer = true) {
   const matiere = cat.matieres.find((m) => m.cle === brouillon.matiere);
   const formesPermises = !matiere || matiere.formes;
+  const neutre = cat.formes.find((f) => f.geometrie === 'rectangle')?.cle ?? cat.formes[0]?.cle;
 
-  // Une matière sans découpe (la toile) fige la forme sur « format initial ».
+  // Une matière qui ne se découpe pas (une toile sur châssis, par exemple)
+  // ramène la coupe au format rectangulaire.
+  if (!formesPermises) brouillon.forme = neutre;
   $('#bloc-formes').classList.toggle('choix--verrouille', !formesPermises);
   $('#note-forme').classList.toggle('cache', formesPermises);
-  for (const bouton of $('#liste-formes').children) {
-    const estInitial = bouton.classList.contains('forme-initial');
-    bouton.disabled = !formesPermises && !estInitial;
+  if (!formesPermises && matiere) {
+    $('#note-forme').textContent = `${matiere.nom} ne se découpe pas : le tirage garde ses angles droits.`;
   }
+  for (const bouton of $('#liste-formes').children) {
+    bouton.disabled = !formesPermises && !bouton.classList.contains('forme-rectangle');
+  }
+
+  // Un format carré n'a pas d'orientation : le choix disparaît.
+  const carre = estCarre(brouillon.format);
+  $('#bloc-orientation').classList.toggle('cache', carre || !brouillon.format);
+  if (carre) brouillon.orientation = 'portrait';
 
   rafraichirPastilles();
   majApercu();
@@ -151,6 +182,7 @@ function rafraichirPastilles() {
     ['#liste-matieres', cat.matieres, 'matiere'],
     ['#liste-formats', cat.formats, 'format'],
     ['#liste-formes', cat.formes, 'forme'],
+    ['#liste-orientations', [{ cle: 'portrait' }, { cle: 'paysage' }], 'orientation'],
   ];
   for (const [selecteur, entrees, champ] of groupes) {
     [...$(selecteur).children].forEach((bouton, index) => {
@@ -163,9 +195,15 @@ function rafraichirPastilles() {
 function majApercu() {
   const rendu = $('#rendu');
   const format = cat.formats.find((f) => f.cle === brouillon.format);
-  rendu.style.aspectRatio = format ? `${format.largeur} / ${format.hauteur}` : '';
-  rendu.dataset.forme = brouillon.forme || 'initial';
-  rendu.classList.toggle('rendu--cadre', brouillon.matiere === 'cadre');
+  if (format) {
+    const paysage = brouillon.orientation === 'paysage' && !format.carre;
+    const [l, h] = paysage ? [format.hauteur, format.largeur] : [format.largeur, format.hauteur];
+    rendu.style.aspectRatio = `${l} / ${h}`;
+  } else {
+    rendu.style.aspectRatio = '';
+  }
+  const forme = cat.formes.find((f) => f.cle === brouillon.forme);
+  rendu.dataset.forme = forme ? forme.geometrie : 'rectangle';
 }
 
 async function enregistrerArticle() {
@@ -254,8 +292,20 @@ function afficherApercu() {
 
   // On reprend le tirage déjà choisi pour cette photo, sinon on repart à vide.
   brouillon = photo.article
-    ? { matiere: photo.article.matiere, format: photo.article.format, forme: photo.article.forme }
-    : { matiere: null, format: null, forme: 'initial' };
+    ? {
+        matiere: photo.article.matiere,
+        format: photo.article.format,
+        forme: photo.article.forme,
+        orientation: photo.article.orientation || 'portrait',
+      }
+    : {
+        matiere: null,
+        format: null,
+        forme: cat.formes.find((f) => f.geometrie === 'rectangle')?.cle ?? cat.formes[0]?.cle,
+        // La photo décide de l'orientation par défaut : c'est ce qui évite
+        // qu'un cliché paysage se retrouve recadré dans un cadre portrait.
+        orientation: orientationNaturelle(photo),
+      };
   appliquerChoix(false);
 
   $('#bande-photos').replaceChildren(...session.images.map(vignetteBande));

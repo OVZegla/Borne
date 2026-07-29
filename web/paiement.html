@@ -7,12 +7,14 @@
   <title>Symp's Kiosk — Régler ma commande</title>
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/theme.css">
 </head>
 <body>
   <div class="enveloppe enveloppe--etroite">
     <header class="entete entete--simple">
       <span class="marque">
         <img class="marque__logo" src="/assets/logo-symps.svg" alt="Symp's">
+        <img class="marque__boutique cache" id="logo-boutique" alt="">
         <span class="marque__texte">
           <span class="marque__nom">Symp's Kiosk</span>
           <span class="marque__sous">Règlement de la commande</span>
@@ -35,15 +37,20 @@
         </div>
 
         <div class="actions actions--empilees" style="margin-top: 1.5rem">
+          <div id="bloc-externe" class="cache" style="width: 100%">
+            <a class="bouton bouton--principal bouton--large" id="lien-externe"
+               href="#" target="_blank" rel="noopener" style="width: 100%">
+              Payer maintenant
+            </a>
+          </div>
           <button class="bouton bouton--principal bouton--large" id="btn-payer" type="button">
             Régler ma commande
           </button>
         </div>
 
         <p class="message message--info" style="margin-top: 1.25rem">
-          <strong>Encaissement à raccorder.</strong> Aucun prestataire de paiement
-          n'est branché sur cette borne : ce bouton marque la commande comme réglée
-          et prévient la réception. À remplacer par votre solution d'encaissement.
+          Le règlement est confirmé à la réception&nbsp;: ce bouton signale votre
+          paiement à la boutique.
         </p>
       </section>
 

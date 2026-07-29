@@ -1,147 +1,146 @@
-"""Catalogue produit : matieres, formats, formes et tarifs.
+"""Calculs du catalogue : prix, libelles, validation d'un tirage.
 
-=============================================================================
-  LES PRIX CI-DESSOUS SONT DES VALEURS DE DEPART, A REMPLACER PAR LES VOTRES.
-  Tout se regle dans ce fichier : PRIX_FORMAT, COEFFICIENT_MATIERE et
-  SUPPLEMENT_FORME. Aucun autre fichier n'a besoin d'etre touche.
-=============================================================================
+Les donnees (matieres, formats, coupes, tarifs) ne sont plus ecrites ici : elles
+appartiennent a chaque boutique et vivent dans `reglages.py`. Ce module ne fait
+que les interroger.
+
+Un tirage vaut : prix du format x coefficient de la matiere + supplement de coupe.
+L'orientation ne change pas le prix, seulement le sens du cadre.
 """
 
 from __future__ import annotations
 
-# --- matieres ----------------------------------------------------------------
-# "formes" indique si le client peut decouper la photo (la toile se tend sur un
-# chassis : elle garde toujours son format d'origine).
-
-MATIERES = {
-    "plexiglas": {"nom": "Plexiglas", "formes": True},
-    "metal": {"nom": "Métal", "formes": True},
-    "dibond": {"nom": "Dibond", "formes": True},
-    "toile": {"nom": "Toile", "formes": False},
-    "cadre": {"nom": "Cadre", "formes": True},
-    "papier": {"nom": "Papier", "formes": True},
-    "bois": {"nom": "Bois", "formes": True},
-    "verre": {"nom": "Verre", "formes": True},
-}
-
-# --- formats (en centimetres) ------------------------------------------------
-
-FORMATS = {
-    "25x30": {"largeur": 25, "hauteur": 30},
-    "30x40": {"largeur": 30, "hauteur": 40},
-    "40x50": {"largeur": 40, "hauteur": 50},
-    "40x60": {"largeur": 40, "hauteur": 60},
-    "50x70": {"largeur": 50, "hauteur": 70},
-    "20x20": {"largeur": 20, "hauteur": 20},
-    "30x30": {"largeur": 30, "hauteur": 30},
-    "40x40": {"largeur": 40, "hauteur": 40},
-    "50x50": {"largeur": 50, "hauteur": 50},
-}
-
-# --- formes ------------------------------------------------------------------
-
-FORMES = {
-    "initial": {"nom": "Format initial"},
-    "diamant": {"nom": "Diamant"},
-    "triangle": {"nom": "Triangle"},
-    "cercle": {"nom": "Cercle"},
-}
-
-# --- tarifs ------------------------------------------------------------------
-# Prix de base par format, en euros, pour la matiere de reference (papier).
-
-PRIX_FORMAT = {
-    "20x20": 19.00,
-    "25x30": 24.00,
-    "30x30": 27.00,
-    "30x40": 32.00,
-    "40x40": 38.00,
-    "40x50": 44.00,
-    "40x60": 49.00,
-    "50x50": 52.00,
-    "50x70": 65.00,
-}
-
-# Multiplicateur applique au prix de base selon la matiere.
-COEFFICIENT_MATIERE = {
-    "papier": 1.00,
-    "toile": 1.35,
-    "cadre": 1.50,
-    "dibond": 1.60,
-    "bois": 1.70,
-    "plexiglas": 1.80,
-    "metal": 1.90,
-    "verre": 2.00,
-}
-
-# Supplement fixe pour une decoupe autre que le format initial.
-SUPPLEMENT_FORME = {
-    "initial": 0.00,
-    "diamant": 6.00,
-    "triangle": 6.00,
-    "cercle": 8.00,
-}
+from . import reglages
 
 DEVISE = "€"
 
+PORTRAIT = "portrait"
+PAYSAGE = "paysage"
+ORIENTATIONS = (PORTRAIT, PAYSAGE)
+
 
 class CatalogueError(ValueError):
-    """Combinaison matiere / format / forme impossible."""
+    """Combinaison matiere / format / coupe impossible."""
 
 
-def verifier(matiere: str, format_: str, forme: str) -> None:
-    """Leve CatalogueError si la combinaison n'existe pas au catalogue."""
-    if matiere not in MATIERES:
+def _index(entrees: list[dict]) -> dict[str, dict]:
+    return {entree["cle"]: entree for entree in entrees}
+
+
+def matieres() -> dict[str, dict]:
+    return _index(reglages.tout()["catalogue"]["matieres"])
+
+
+def formats() -> dict[str, dict]:
+    return _index(reglages.tout()["catalogue"]["formats"])
+
+
+def formes() -> dict[str, dict]:
+    return _index(reglages.tout()["catalogue"]["formes"])
+
+
+def formes_actives() -> bool:
+    return bool(reglages.tout()["catalogue"]["formes_actives"])
+
+
+def forme_neutre() -> str:
+    """La coupe rectangulaire, seule autorisee quand les coupes sont desactivees."""
+    for cle, forme in formes().items():
+        if forme["geometrie"] == "rectangle":
+            return cle
+    return next(iter(formes()), "initial")
+
+
+def carre(format_: str) -> bool:
+    entree = formats().get(format_)
+    return bool(entree) and entree["largeur"] == entree["hauteur"]
+
+
+def verifier(matiere: str, format_: str, forme: str, orientation: str = PORTRAIT) -> None:
+    """Leve CatalogueError si la combinaison n'est pas proposee par la boutique."""
+    table_matieres, table_formats, table_formes = matieres(), formats(), formes()
+
+    if matiere not in table_matieres:
         raise CatalogueError(f"Matiere inconnue : {matiere}")
-    if format_ not in FORMATS:
+    if format_ not in table_formats:
         raise CatalogueError(f"Format inconnu : {format_}")
-    if forme not in FORMES:
-        raise CatalogueError(f"Forme inconnue : {forme}")
-    if not MATIERES[matiere]["formes"] and forme != "initial":
-        nom = MATIERES[matiere]["nom"]
-        raise CatalogueError(f"La matiere {nom} ne se decoupe pas : forme 'initial' uniquement")
+    if forme not in table_formes:
+        raise CatalogueError(f"Coupe inconnue : {forme}")
+    if orientation not in ORIENTATIONS:
+        raise CatalogueError(f"Orientation inconnue : {orientation}")
+
+    rectangulaire = table_formes[forme]["geometrie"] == "rectangle"
+    if not formes_actives() and not rectangulaire:
+        raise CatalogueError("Les decoupes ne sont pas proposees par cette boutique")
+    if not table_matieres[matiere]["decoupe"] and not rectangulaire:
+        nom = table_matieres[matiere]["nom"]
+        raise CatalogueError(f"La matiere {nom} ne se decoupe pas")
 
 
-def prix(matiere: str, format_: str, forme: str) -> float:
+def prix(matiere: str, format_: str, forme: str, orientation: str = PORTRAIT) -> float:
     """Prix TTC d'un tirage, arrondi au centime."""
-    verifier(matiere, format_, forme)
-    base = PRIX_FORMAT[format_] * COEFFICIENT_MATIERE[matiere]
-    return round(base + SUPPLEMENT_FORME[forme], 2)
+    verifier(matiere, format_, forme, orientation)
+    base = formats()[format_]["prix"] * matieres()[matiere]["coefficient"]
+    return round(base + formes()[forme]["supplement"], 2)
 
 
-def libelle(matiere: str, format_: str, forme: str) -> str:
+def dimensions(format_: str, orientation: str = PORTRAIT) -> tuple[int, int]:
+    """Largeur et hauteur reelles du tirage, orientation comprise."""
+    entree = formats()[format_]
+    largeur, hauteur = entree["largeur"], entree["hauteur"]
+    if orientation == PAYSAGE and largeur != hauteur:
+        return hauteur, largeur
+    return largeur, hauteur
+
+
+def libelle(matiere: str, format_: str, forme: str, orientation: str = PORTRAIT) -> str:
     """Description lisible d'un article, pour le poste de reception."""
-    morceaux = [MATIERES[matiere]["nom"], f"{format_} cm"]
-    if forme != "initial":
-        morceaux.append(FORMES[forme]["nom"])
+    largeur, hauteur = dimensions(format_, orientation)
+    morceaux = [matieres()[matiere]["nom"], f"{largeur}x{hauteur} cm"]
+    if formes()[forme]["geometrie"] != "rectangle":
+        morceaux.append(formes()[forme]["nom"])
     return " · ".join(morceaux)
 
 
 def public() -> dict:
     """Catalogue complet envoye aux pages web."""
+    valeurs = reglages.tout()["catalogue"]
+    actives = bool(valeurs["formes_actives"])
+    liste_formes = [
+        f for f in valeurs["formes"] if actives or f["geometrie"] == "rectangle"
+    ]
+
+    grille = {}
+    for matiere in valeurs["matieres"]:
+        for format_ in valeurs["formats"]:
+            for forme in liste_formes:
+                if forme["geometrie"] != "rectangle" and not matiere["decoupe"]:
+                    continue
+                cle = f"{matiere['cle']}|{format_['cle']}|{forme['cle']}"
+                grille[cle] = round(
+                    format_["prix"] * matiere["coefficient"] + forme["supplement"], 2
+                )
+
     return {
         "matieres": [
-            {"cle": cle, "nom": valeur["nom"], "formes": valeur["formes"]}
-            for cle, valeur in MATIERES.items()
+            {"cle": m["cle"], "nom": m["nom"], "formes": bool(m["decoupe"])}
+            for m in valeurs["matieres"]
         ],
         "formats": [
             {
-                "cle": cle,
-                "nom": f"{valeur['largeur']}×{valeur['hauteur']} cm",
-                "largeur": valeur["largeur"],
-                "hauteur": valeur["hauteur"],
-                "carre": valeur["largeur"] == valeur["hauteur"],
+                "cle": f["cle"],
+                "nom": f"{f['nom']} cm",
+                "largeur": f["largeur"],
+                "hauteur": f["hauteur"],
+                "carre": f["largeur"] == f["hauteur"],
             }
-            for cle, valeur in FORMATS.items()
+            for f in valeurs["formats"]
         ],
-        "formes": [{"cle": cle, "nom": valeur["nom"]} for cle, valeur in FORMES.items()],
+        "formes": [
+            {"cle": f["cle"], "nom": f["nom"], "geometrie": f["geometrie"]}
+            for f in liste_formes
+        ],
+        "formes_actives": actives,
         "devise": DEVISE,
-        # La grille complete permet a la borne d'afficher le prix sans aller-retour.
-        "prix": {
-            f"{matiere}|{format_}|{forme}": prix(matiere, format_, forme)
-            for matiere in MATIERES
-            for format_ in FORMATS
-            for forme in FORMES
-            if MATIERES[matiere]["formes"] or forme == "initial"
-        },
+        "prix": grille,
     }

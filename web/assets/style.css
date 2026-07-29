@@ -615,12 +615,14 @@ body {
   display: block;
 }
 
+/* Les decoupes suivent la geometrie de la coupe, pas son nom : une boutique
+   peut nommer « Hublot » une coupe circulaire. */
 /* `closest-side` inscrit le cercle dans le petit cote, comme le tirage reel. */
 .rendu[data-forme='cercle'] {
   clip-path: circle(closest-side at 50% 50%);
 }
 
-.rendu[data-forme='diamant'] {
+.rendu[data-forme='losange'] {
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
 }
 
@@ -628,10 +630,24 @@ body {
   clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
 }
 
-.rendu--cadre {
-  border: 10px solid var(--bleu-900);
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+.rendu[data-forme='hexagone'] {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.rendu[data-forme='arche'] {
+  clip-path: polygon(0% 100%, 0% 45%, 8% 26%, 25% 11%, 50% 5%, 75% 11%, 92% 26%, 100% 45%, 100% 100%);
+}
+
+/* Logo de la boutique, a cote de la signature Symp's (jamais a la place). */
+.marque__boutique {
+  height: clamp(26px, 3.4vw, 34px);
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
+  flex: none;
+  margin-left: 0.85rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--bordure);
 }
 
 .options {
@@ -691,12 +707,15 @@ body {
     color var(--transition);
 }
 
-.pastille-choix:hover:not(:disabled) {
+.pastille-choix:hover:not(:disabled):not([data-actif='true']) {
   border-color: var(--bleu-500);
   background: var(--bleu-050);
 }
 
-.pastille-choix[data-actif='true'] {
+/* L'etat selectionne doit primer sur le survol, sinon passer la souris sur une
+   pastille deja choisie la fait paraitre deselectionnee. */
+.pastille-choix[data-actif='true'],
+.pastille-choix[data-actif='true']:hover {
   background: var(--bleu-800);
   border-color: var(--bleu-800);
   color: #fff;
@@ -872,7 +891,11 @@ body {
 }
 
 .cache-champ {
+  /* Epingle en haut a gauche : sinon le champ reste a sa position statique,
+     apres les boutons, et fait deborder la page vers la droite. */
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   opacity: 0;
@@ -1276,4 +1299,196 @@ body {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* --- page de reglages ------------------------------------------------------ */
+
+.grille-deux {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.couleur {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.couleur input[type="color"] {
+  width: 52px;
+  height: 46px;
+  padding: 0;
+  border: 1.5px solid var(--bordure);
+  border-radius: 12px;
+  background: none;
+  cursor: pointer;
+  flex: none;
+}
+
+.couleur input[type="text"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+}
+
+select {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font: inherit;
+  color: var(--encre);
+  background: var(--surface);
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  cursor: pointer;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--bleu-600);
+  box-shadow: 0 0 0 4px var(--bleu-100);
+}
+
+.logo-zone {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  padding: 1rem;
+  border: 1px dashed var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--bleu-050);
+}
+
+.logo-zone__apercu {
+  max-height: 56px;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+.logo-zone__vide {
+  color: var(--gris);
+  font-size: 0.9rem;
+}
+
+.tableau {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tableau__ligne {
+  /* Flex plutot que grid : `repeat(auto-fit, ...)` associe a une piste `auto`
+     rend la declaration invalide, et tout retombe sur une seule colonne. */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: flex-end;
+  padding: 0.85rem;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--surface);
+}
+
+.tableau__cellule {
+  display: grid;
+  gap: 0.3rem;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.tableau__cellule--case {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 1 auto;
+  font-size: 0.9rem;
+  padding-bottom: 0.7rem;
+  white-space: nowrap;
+}
+
+.tableau__cellule--case input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--bleu-800);
+}
+
+.tableau__libelle {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--gris);
+}
+
+.tableau__cellule input,
+.tableau__cellule select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-size: 0.92rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--encre);
+}
+
+.tableau__cellule input:focus,
+.tableau__cellule select:focus {
+  outline: none;
+  border-color: var(--bleu-600);
+}
+
+.tableau__suppr {
+  flex: none;
+  margin-left: auto;
+  align-self: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--gris);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition),
+    background var(--transition);
+}
+
+.tableau__suppr:hover {
+  color: var(--alerte);
+  border-color: #f4cfcc;
+  background: #fdf0ef;
+}
+
+.bascule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bascule input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--bleu-800);
+}
+
+.barre-enregistrement {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.75rem;
+  padding: 1rem clamp(1rem, 3vw, 1.5rem);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-lg);
+  box-shadow: var(--ombre-forte);
+}
+
+.barre-enregistrement__etat {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--succes);
 }
