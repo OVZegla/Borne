@@ -1,0 +1,3 @@
+# Les fichiers de commandes Windows exigent des fins de ligne CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf

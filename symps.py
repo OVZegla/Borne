@@ -63,7 +63,7 @@ def main() -> None:
 
 def rejoindre(hote: dict, ouvrir: bool) -> None:
     """Ce poste se raccroche a l'hote deja en service."""
-    print(f"\n  {config.BRAND_NAME} — poste connecte.\n")
+    print(f"\n  {config.BRAND_NAME} - poste connecte.\n")
     print(f"  Hote trouve : {hote.get('nom') or hote['host']}")
     print(f"  Adresse     : {hote['url']}\n")
     print("  Cette fenetre peut rester ouverte ou etre fermee.\n")

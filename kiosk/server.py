@@ -103,7 +103,7 @@ def preferred_url(port: int) -> str:
 
 class KioskServer(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
+    allow_reuse_address = config.port_reutilisable()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -556,7 +556,7 @@ def serve(
 
         threading.Timer(0.8, webbrowser.open, [f"http://localhost:{actual_port}"]).start()
 
-    print(f"\n  {config.BRAND_NAME} — cette machine est l'hote.\n")
+    print(f"\n  {config.BRAND_NAME} - cette machine est l'hote.\n")
     print(f"  Sur cette machine   : http://localhost:{actual_port}")
     for address in local_addresses():
         print(f"  Depuis un autre app.: http://{address}:{actual_port}")

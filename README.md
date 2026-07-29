@@ -39,11 +39,35 @@ la borne et sur le poste de réception. Elles se trouvent toutes seules.
 ./start.sh --poste    # se connecter uniquement, ne jamais héberger
 ```
 
-L'identifiant d'atelier (`depots/atelier.txt`, ou `SYMPS_ATELIER`) évite qu'une
+L'identifiant d'atelier (`atelier.txt` dans le dossier de données, ou
+`SYMPS_ATELIER`) évite qu'une
 borne rejoigne l'hôte d'une autre boutique sur un réseau partagé. Ce n'est pas un
 secret : toutes les machines doivent être sur le même réseau de confiance.
 
+## Démarrer sur Windows
+
+C'est la plateforme des postes en boutique.
+
+Double-cliquez sur **`Symps Kiosk.bat`**.
+
+> **Windows n'a pas Python préinstallé**, contrairement au Mac. Au premier
+> déploiement, installez-le depuis <https://www.python.org/downloads/> en cochant
+> **« Add python.exe to PATH »**. Le lanceur affiche ce message si Python manque.
+>
+> Voir plus bas : pour livrer à des clients, l'objectif est un `.exe` autonome
+> qui embarque Python — ils n'auront alors rien à installer.
+
+**Au premier lancement, Windows affiche une alerte du pare-feu** : autorisez
+l'accès sur les **réseaux privés**. Sans cela, le téléphone ne pourra pas
+atteindre la borne et les postes ne se trouveront pas entre eux.
+
+Les dépôts sont écrits dans `%LOCALAPPDATA%\Symp's Kiosk\depots`, et non à côté
+du programme : l'application peut ainsi être installée dans un dossier en
+lecture seule.
+
 ## Démarrer sur un Mac
+
+La version Mac sert surtout aux essais : les postes en boutique sont sous Windows.
 
 Dans le Finder, double-cliquez sur **`Symp's Kiosk.command`**.
 
@@ -58,10 +82,12 @@ Le navigateur s'ouvre tout seul sur la page de dépôt. La console affiche aussi
 l'adresse à utiliser depuis les autres appareils :
 
 ```
-  Symp's Kiosk est demarre.
+  Symp's Kiosk - cette machine est l'hote.
 
   Sur cette machine   : http://localhost:8080
   Depuis un autre app.: http://192.168.1.42:8080
+
+  Les autres postes de la boutique s'y connecteront tout seuls.
 ```
 
 > **Au premier lancement**, macOS peut refuser d'exécuter le fichier `.command`.
@@ -162,17 +188,32 @@ Tout se règle par variables d'environnement, sans toucher au code :
 | `SYMPS_HOST` | `0.0.0.0` | interface d'écoute |
 | `SYMPS_DISCOVERY_PORT` | `8079` | port UDP d'appairage des machines |
 | `SYMPS_ATELIER` | auto | identifiant partagé par les machines d'une boutique |
-| `SYMPS_DATA` | `./depots` | dossier de stockage des dépôts |
+| `SYMPS_DATA` | dossier système¹ | dossier de stockage des dépôts |
 | `SYMPS_RETENTION_HOURS` | `24` | conservation d'un dépôt, à partir de sa validation |
 | `SYMPS_DRAFT_HOURS` | `2` | oubli d'une session ouverte mais restée vide |
 | `SYMPS_MAX_MB` | `25` | taille maximale par fichier |
 | `SYMPS_MAX_FILES` | `20` | nombre de fichiers par dépôt |
 | `SYMPS_VERBOSE` | — | à définir pour journaliser chaque requête |
 
+¹ Par défaut, l'emplacement inscriptible propre à chaque système :
+
+| Système | Emplacement des dépôts |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\Symp's Kiosk\depots` |
+| macOS | `~/Library/Application Support/Symp's Kiosk/depots` |
+| Linux | `$XDG_DATA_HOME/symps-kiosk/depots` |
+
 Exemple :
 
 ```bash
 SYMPS_PORT=9000 SYMPS_RETENTION_HOURS=2 ./start.sh
+```
+
+Sous Windows :
+
+```bat
+set SYMPS_PORT=9000
+"Symps Kiosk.bat"
 ```
 
 Options en ligne de commande : `./start.sh --port 9000 --no-browser`
@@ -206,6 +247,28 @@ Options en ligne de commande : `./start.sh --port 9000 --no-browser`
 
 ---
 
+## Livrer aux clients : ce qui reste à faire
+
+Aujourd'hui l'application se lance par un script et suppose Python installé.
+Pour la distribuer à des boutiques par abonnement, il manque :
+
+**1. Un `.exe` autonome.** PyInstaller produit un exécutable unique qui embarque
+Python : le client n'installe plus rien. C'est l'étape qui débloque tout le reste.
+
+**2. La signature du code.** Sans certificat, **SmartScreen** affiche un
+avertissement dissuasif au premier lancement chez chaque client. Comptez un
+certificat de signature (les certificats EV donnent une réputation immédiate).
+L'équivalent Mac est la notarisation Apple, qui suppose un compte développeur.
+
+**3. Une règle de pare-feu posée à l'installation**, pour éviter de demander au
+commerçant de cliquer sur la bonne option de l'alerte Windows.
+
+**4. L'activation par abonnement.** Le compte validerait l'abonnement et
+appairerait les machines : l'identifiant d'atelier utilisé aujourd'hui pour la
+découverte réseau est prévu pour devenir celui du compte. Une vérification hors
+ligne (signature vérifiable sans réseau, avec période de grâce) évite qu'une
+coupure Internet empêche la boutique de vendre.
+
 ## Remplacer le logo
 
 L'en-tête de toutes les pages affiche `web/assets/logo-symps.svg`. Ce fichier est
@@ -224,7 +287,8 @@ une signature horizontale serait illisible dans un onglet.
 
 ```
 symps.py               point d'entrée
-start.sh               lanceur (vérifie Python 3)
+Symps Kiosk.bat        lanceur Windows (double-clic)
+start.sh               lanceur macOS / Linux (vérifie Python 3)
 Symp's Kiosk.command   lanceur double-cliquable depuis le Finder
 kiosk/
   config.py            réglages et variables d'environnement

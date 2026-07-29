@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import sys
 from pathlib import Path
 
 VERSION = "1.0.0"
@@ -25,7 +26,43 @@ PORT = _int_env("SYMPS_PORT", 8080)
 # Port UDP sur lequel les machines d'un meme atelier se cherchent.
 DISCOVERY_PORT = _int_env("SYMPS_DISCOVERY_PORT", 8079)
 
-DATA_DIR = Path(os.environ.get("SYMPS_DATA", BASE_DIR / "depots")).resolve()
+def dossier_donnees_par_defaut(
+    nom_os: str | None = None, plateforme: str | None = None, env: dict | None = None
+) -> str:
+    """Emplacement inscriptible propre a chaque systeme.
+
+    L'application est souvent installee dans un dossier en lecture seule
+    (« Program Files » sous Windows, « Applications » sous macOS) : les depots
+    ne peuvent pas etre ecrits a cote du programme.
+
+    Les parametres n'existent que pour rendre la fonction testable depuis un
+    autre systeme ; en usage normal ils sont deduits de la machine.
+    """
+    nom_os = os.name if nom_os is None else nom_os
+    plateforme = sys.platform if plateforme is None else plateforme
+    env = os.environ if env is None else env
+    maison = env.get("HOME") or env.get("USERPROFILE") or os.path.expanduser("~")
+
+    if nom_os == "nt":
+        return os.path.join(env.get("LOCALAPPDATA") or maison, "Symp's Kiosk", "depots")
+    if plateforme == "darwin":
+        return os.path.join(maison, "Library", "Application Support", "Symp's Kiosk", "depots")
+    racine = env.get("XDG_DATA_HOME") or os.path.join(maison, ".local", "share")
+    return os.path.join(racine, "symps-kiosk", "depots")
+
+
+def port_reutilisable(nom_os: str | None = None) -> bool:
+    """SO_REUSEADDR est-il sur a activer sur ce systeme ?
+
+    Sous Windows il autorise deux processus a se lier au meme port : le repli
+    sur le port suivant ne se declencherait pas et deux instances se
+    partageraient les connexions. Ailleurs il signifie seulement « reutiliser un
+    port encore en TIME_WAIT », ce que l'on veut.
+    """
+    return (os.name if nom_os is None else nom_os) != "nt"
+
+
+DATA_DIR = Path(os.environ.get("SYMPS_DATA") or dossier_donnees_par_defaut()).resolve()
 FILES_DIR = DATA_DIR / "fichiers"
 INDEX_FILE = DATA_DIR / "index.json"
 

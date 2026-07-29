@@ -73,7 +73,8 @@ class Annonceur:
 
     def _boucle(self) -> None:
         prise = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        prise.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if config.port_reutilisable():
+            prise.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             prise.bind(("", PORT_DECOUVERTE))
         except OSError:
