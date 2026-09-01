@@ -26,6 +26,39 @@ PORT = _int_env("SYMPS_PORT", 8080)
 # Port UDP sur lequel les machines d'un meme atelier se cherchent.
 DISCOVERY_PORT = _int_env("SYMPS_DISCOVERY_PORT", 8079)
 
+# --- porte publique ----------------------------------------------------------
+# Le QR code de la borne encode une adresse. Tant que c'est celle du reseau
+# local (192.168.x.y), seul un telephone pose sur le meme Wi-Fi peut deposer.
+# Pour que le depot marche depuis n'importe quel reseau, la boutique ouvre un
+# tunnel sortant (Cloudflare Tunnel, ngrok...) qui lui donne une adresse
+# publique en https, et la declare dans ses reglages.
+#
+# Cette adresse ne doit surtout pas mener au serveur entier : la reception, le
+# tableau de bord, les reglages et le choix du role se retrouveraient sur
+# Internet. Le tunnel se branche donc sur une *seconde* porte, ouverte sur la
+# boucle locale uniquement, qui ne sert que les pages du telephone du client.
+PUBLIC_HOST = os.environ.get("SYMPS_PUBLIC_HOST", "127.0.0.1")
+
+# Adresse publique imposee par l'environnement. Renseignee, elle l'emporte sur
+# le reglage saisi dans la page d'administration.
+PUBLIC_URL = os.environ.get("SYMPS_PUBLIC_URL", "").strip()
+
+
+def port_public(port_principal: int, valeur: str | None = None) -> int:
+    """Port de la porte publique, 0 si elle doit rester fermee.
+
+    Par defaut le port principal + 1, calcule *apres* coup : le serveur glisse
+    au port suivant quand le sien est pris, et les deux portes se marcheraient
+    dessus si le calcul se faisait sur le port demande.
+    """
+    brut = (os.environ.get("SYMPS_PUBLIC_PORT", "") if valeur is None else valeur).strip().lower()
+    if brut in ("off", "non", "aucun", "0"):
+        return 0
+    try:
+        return int(brut)
+    except ValueError:
+        return port_principal + 1
+
 def dossier_donnees_par_defaut(
     nom_os: str | None = None, plateforme: str | None = None, env: dict | None = None
 ) -> str:

@@ -58,7 +58,9 @@ juste à dire ce qu'ils sont.
 > **À savoir** : sur le réseau local, qui atteint la borne peut aussi ouvrir
 > l'écran de choix et se déclarer « PC ». Sur le Wi-Fi de la boutique c'est sans
 > conséquence ; si vos clients partagent le réseau de vos machines, il faudra un
-> code d'accès sur ce choix — il n'y en a pas aujourd'hui.
+> code d'accès sur ce choix — il n'y en a pas aujourd'hui. C'est justement
+> pourquoi le dépôt à distance ne passe **pas** par cet écran : voir
+> [Déposer depuis n'importe quel réseau](#déposer-depuis-nimporte-quel-réseau).
 
 ## Le tableau de bord (poste PC)
 
@@ -103,6 +105,93 @@ L'identifiant d'atelier (`atelier.txt` dans le dossier de données, ou
 `SYMPS_ATELIER`) évite qu'une
 borne rejoigne l'hôte d'une autre boutique sur un réseau partagé. Ce n'est pas un
 secret : toutes les machines doivent être sur le même réseau de confiance.
+
+## Déposer depuis n'importe quel réseau
+
+Le QR code de la borne contient une adresse. Tant que c'est celle du réseau local
+— `http://192.168.1.42:8080` — **seul un téléphone posé sur le même Wi-Fi peut
+déposer** : une adresse privée n'est routable que de l'intérieur. Un client en 4G
+scanne le QR et n'arrive nulle part.
+
+Pour lever ça, la boutique ouvre un **tunnel sortant** vers sa machine hôte, ce
+qui lui donne une adresse publique en `https`, et la déclare dans
+**Réglages → Dépôt à distance**. Les QR codes portent alors cette adresse, et le
+dépôt fonctionne depuis n'importe quel réseau — sans donner le Wi-Fi de la
+boutique aux clients, et sans ouvrir le moindre port sur la box.
+
+### Les deux portes
+
+Une adresse publique qui mènerait au serveur entier mettrait la réception, le
+tableau de bord et les tarifs sur Internet. L'application écoute donc sur **deux
+portes distinctes** :
+
+| Porte | Écoute sur | Sert |
+| --- | --- | --- |
+| **locale** | toutes les interfaces, port `8080` | tout : borne, réception, impression, tableau, réglages |
+| **publique** | `127.0.0.1` uniquement, port `8081` | l'envoi des photos et le règlement, rien d'autre |
+
+La porte publique n'est ouverte **que sur la boucle locale** : le tunnel, qui
+tourne sur cette même machine, l'atteint ; le reste du réseau de la boutique,
+non. C'est là — et **nulle part ailleurs** — que le tunnel se branche.
+
+La séparation tient au **port d'arrivée**, pas à un en-tête : `Host` et
+`X-Forwarded-For` se falsifient depuis n'importe où, un port d'écoute non. Aucune
+requête, même forgée, n'atteint la réception par ce chemin. Ce que la porte
+publique sert est une **liste blanche** (`SURFACE_PUBLIQUE` dans `server.py`) :
+une route ajoutée au serveur n'y apparaît que si on l'y met, si bien qu'un oubli
+ferme la porte au lieu de l'ouvrir.
+
+Concrètement, au bout du tunnel :
+
+- `/envoyer`, `/paiement` et leurs API, `/e`, `/p`, les feuilles de style ;
+- **rien** d'autre : `/tableau`, `/recuperer`, `/reglages`, `/impression`,
+  `/connexion`, `/api/depots`, `/api/poste`… répondent `404`. Pas `403` : depuis
+  Internet, rien ne laisse deviner qu'il y a une boutique derrière.
+- aucun rôle n'existe de ce côté. La route qui en attribue un n'y est pas servie,
+  et un cookie de rôle recopié à la main n'y donne rien de plus.
+- le flux d'événements exige le jeton d'une session : sans lui, l'abonnement
+  porterait sur le canal général de la boutique, qui diffuse **tous** les dépôts.
+
+### Mettre en place le tunnel
+
+Au démarrage, l'application affiche l'adresse de sa porte publique :
+
+```
+  Porte publique      : http://127.0.0.1:8081   (envoi et reglement seulement)
+```
+
+Avec [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+(gratuit, rien à ouvrir sur la box) :
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8081
+```
+
+La commande affiche une adresse en `https://…` : reportez-la dans
+**Réglages → Dépôt à distance**, cochez la case, enregistrez. Les QR codes
+suivants la portent. Pour une boutique installée, préférez un *tunnel nommé*, qui
+garde la même adresse d'un redémarrage à l'autre. `ngrok` et Tailscale Funnel
+font la même chose.
+
+Le `https` n'est pas décoratif : hors contexte sécurisé, les navigateurs mobiles
+refusent l'accès à l'appareil photo. Une adresse en `http://` est donc refusée à
+la saisie.
+
+> **À savoir** : cette adresse est publique, et le seul secret qui protège un
+> dépôt est le jeton contenu dans le QR code — 128 bits tirés au hasard, un par
+> session, effacé avec le dépôt. Personne ne devine celui d'un autre client, mais
+> quiconque reçoit le lien peut ajouter des photos à ce dépôt tant qu'il n'est pas
+> validé. Le débit d'envoi n'est pas limité par l'application : si votre tunnel
+> sait le faire, un plafond de requêtes n'est pas du luxe.
+
+Sans adresse déclarée, rien ne change : les QR codes gardent l'adresse du réseau
+local. Pour ne pas ouvrir la porte publique du tout, lancez avec
+`SYMPS_PUBLIC_PORT=off`.
+
+Une fois l'adresse cochée, **tous** les QR codes la portent, y compris pour un
+client debout devant la borne. Si le tunnel tombe, plus personne ne dépose — même
+sur votre Wi-Fi. Décochez la case pour revenir au réseau local le temps de le
+relancer.
 
 ## Démarrer sur Windows
 
@@ -220,6 +309,10 @@ Scanner le QR code ouvre la page d'envoi. Deux boutons : **Prendre une photo**
 (déclenche l'appareil photo) ou **Choisir dans ma galerie**. Une fois l'envoi
 terminé, la page invite à retourner à la borne.
 
+Le téléphone doit être sur le Wi-Fi de la boutique, **sauf** si une adresse de
+dépôt à distance est déclarée : le QR code porte alors une adresse publique et le
+dépôt marche depuis n'importe quel réseau.
+
 ### Le paiement
 
 Après validation, la borne affiche un second QR code, distinct de celui d'envoi.
@@ -281,6 +374,9 @@ Tout se règle par variables d'environnement, sans toucher au code :
 | `SYMPS_PORT` | `8080` | port d'écoute (glisse au port suivant s'il est pris) |
 | `SYMPS_HOST` | `0.0.0.0` | interface d'écoute |
 | `SYMPS_DISCOVERY_PORT` | `8079` | port UDP d'appairage des machines |
+| `SYMPS_PUBLIC_PORT` | port + 1 | port de la porte publique ; `off` pour ne pas l'ouvrir |
+| `SYMPS_PUBLIC_HOST` | `127.0.0.1` | interface de la porte publique ; à ne pas élargir |
+| `SYMPS_PUBLIC_URL` | — | adresse publique imposée, prioritaire sur le réglage |
 | `SYMPS_ATELIER` | auto | identifiant partagé par les machines d'une boutique |
 | `SYMPS_DATA` | dossier système¹ | dossier de stockage des dépôts |
 | `SYMPS_RETENTION_HOURS` | `24` | conservation d'un dépôt, à partir de sa validation |
@@ -525,7 +621,7 @@ kiosk/
   reseau.py            appairage automatique des machines en LAN
   reglages.py          réglages de la boutique : marque, catalogue, tarifs
   catalogue.py         calcul des prix et des libellés, orientation
-  server.py            serveur HTTP, routes, flux temps réel (SSE)
+  server.py            serveur HTTP, routes, flux temps réel (SSE), porte publique
   storage.py           dépôts, articles, paiement, expiration
   imagemeta.py         dimensions lues dans les en-têtes (sans Pillow)
   qr.py                générateur de QR code autonome
@@ -555,6 +651,14 @@ utilisé pour le retrait.
 La colonne **Poste** dit quel rôle a le droit d'appeler la route. « — » signifie
 qu'elle est ouverte à tous, y compris au téléphone du client, qui n'a pas de
 rôle ; son secret est alors le jeton qu'il détient.
+
+Une route ouverte à tous n'est pas pour autant servie **au bout du tunnel** : la
+porte publique a sa propre liste blanche, plus courte, décrite dans
+[Déposer depuis n'importe quel réseau](#déposer-depuis-nimporte-quel-réseau). Y
+figurent seulement `/api/config`, `/api/catalogue`, `/assets/theme.css`,
+`/logo-boutique`, `GET /api/sessions/<jeton>`,
+`POST /api/sessions/<jeton>/images`, `/api/paiement/<jeton>`,
+`/api/evenements?session=<jeton>`, `/e`, `/p` et les fichiers statiques.
 
 | Méthode | Chemin | Poste | Rôle |
 | --- | --- | --- | --- |

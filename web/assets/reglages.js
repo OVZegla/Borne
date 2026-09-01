@@ -1,6 +1,6 @@
 /* Page d'administration : marque, catalogue, tarifs, encaissement. */
 
-import { $, api, element } from './commun.js';
+import { $, api, config, element } from './commun.js';
 import { brancherChangementDePoste, poserNavigation } from './navigation.js';
 import { creerRoue } from './roue.js';
 
@@ -53,6 +53,11 @@ function remplir(recu) {
   $('#lien-paiement').value = recu.paiement.lien || '';
   $('#libelle-paiement').value = recu.paiement.libelle || '';
   majBlocLien();
+
+  const distant = recu.acces_distant || { actif: false, url: '' };
+  $('#acces-distant-actif').checked = Boolean(distant.actif);
+  $('#acces-distant-url').value = distant.url || '';
+  majAideTunnel();
 
   dessinerMatieres();
   dessinerFormats();
@@ -657,6 +662,37 @@ function majOrdre() {
   $('#avertissement-ordre').classList.toggle('cache', !$('#ordre-avant').checked);
 }
 
+/* --- dépôt à distance ------------------------------------------------------- */
+
+/**
+ * La commande à lancer dépend du port de la porte publique, que le serveur
+ * choisit au démarrage : on l'affiche plutôt que de la faire deviner.
+ */
+async function majAideTunnel() {
+  const aide = $('#aide-tunnel');
+  let porte = null;
+  try {
+    porte = (await config()).porte_publique;
+  } catch (echec) {
+    porte = null;
+  }
+
+  if (!porte) {
+    aide.textContent =
+      "La porte publique est fermée sur cette machine : aucun tunnel ne peut " +
+      "s'y brancher, et le dépôt reste réservé à votre réseau local.";
+    return;
+  }
+
+  aide.replaceChildren(
+    'Branchez votre tunnel sur ',
+    element('code', {}, `http://127.0.0.1:${porte}`),
+    ' — et sur rien d\'autre. Par exemple : ',
+    element('code', {}, `cloudflared tunnel --url http://127.0.0.1:${porte}`),
+    ". Reportez ensuite ici l'adresse en https qu'il vous donne.",
+  );
+}
+
 /* --- enregistrement --------------------------------------------------------- */
 
 $('#btn-enregistrer').addEventListener('click', async () => {
@@ -688,6 +724,10 @@ $('#btn-enregistrer').addEventListener('click', async () => {
       ordre: $('#ordre-avant').checked ? 'avant' : 'apres',
       lien: $('#lien-paiement').value,
       libelle: $('#libelle-paiement').value,
+    },
+    acces_distant: {
+      actif: $('#acces-distant-actif').checked,
+      url: $('#acces-distant-url').value,
     },
   };
 
