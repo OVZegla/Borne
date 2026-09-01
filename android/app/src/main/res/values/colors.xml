@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Les couleurs de la marque, reprises de kiosk/config.py. -->
+    <color name="marque">#00287E</color>
+    <color name="fond">#F2F6FD</color>
+    <color name="texte">#3B4A66</color>
+    <color name="blanc">#FFFFFF</color>
+</resources>

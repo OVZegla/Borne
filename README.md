@@ -210,6 +210,17 @@ déjà, il ne manque que le serveur qui les émet.
 Pour ne pas ouvrir la porte publique du tout, lancez avec
 `SYMPS_PUBLIC_PORT=off`.
 
+## La borne sur tablette Android
+
+Un dossier [`android/`](android/README.md) contient une application qui trouve
+l'hôte sur le réseau local — le même dialogue UDP que `kiosk/reseau.py` — et
+affiche sa page en plein écran, sans barre ni bouton. On pose la tablette sur le
+Wi-Fi de la boutique, on l'allume, il n'y a **rien à saisir**, pas même une
+adresse.
+
+C'est un projet à compiler, pas un APK livré : voir son README pour le construire
+et pour verrouiller la tablette.
+
 ## Démarrer sur Windows
 
 C'est la plateforme des postes en boutique.
@@ -656,6 +667,7 @@ web/
   recuperer.html       la réception : saisie du code, galerie, statut de paiement
   impression.html      vue d'impression d'une image
   assets/              CSS, JavaScript et logos
+android/               la borne sur tablette Android (projet à compiler)
 samples/               vos images d'exemple
 depots/                dépôts créés à l'exécution (ignoré par git)
 ```

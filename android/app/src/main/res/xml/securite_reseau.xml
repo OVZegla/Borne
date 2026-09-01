@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Le serveur de la boutique parle en HTTP sur le reseau local : il n'a pas de
+  nom de domaine, donc pas de certificat possible. Android 9 et suivants
+  bloquent le clair par defaut, il faut donc l'autoriser explicitement.
+
+  C'est sans consequence ici : le trafic ne quitte pas le reseau de la
+  boutique. Le depot a distance, lui, passe par le tunnel en https, et ne
+  concerne pas cette application — la borne parle toujours a l'hote local.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

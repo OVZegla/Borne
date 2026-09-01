@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Symp\'s Kiosk</string>
+    <string name="recherche">Recherche de la machine de la boutique…</string>
+    <string name="introuvable">Machine introuvable.\n\nVérifiez qu\'elle est allumée et que cette borne est sur le même réseau.</string>
+    <string name="hote_perdu">Connexion perdue. Nouvelle tentative…</string>
+    <string name="reessayer">Réessayer</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sans barre de titre : l'ecran appartient entierement a la page. -->
+    <style name="ThemeBorne" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/fond</item>
+    </style>
+</resources>
