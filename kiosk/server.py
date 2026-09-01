@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import catalogue, config, licence, postes, qr, reglages, reseau, tableau
+from . import catalogue, config, licence, postes, qr, reglages, reseau, tableau, tunnel
 from .storage import Store, StorageError
 
 STORE = Store()
@@ -59,9 +59,23 @@ class Broker:
 
 BROKER = Broker()
 
-# Port de la porte publique une fois ouverte, ou None. La page des reglages en
-# a besoin pour afficher a la boutique la commande de tunnel a lancer.
+# Port de la porte publique une fois ouverte, ou None.
 PORTE_PUBLIQUE: int | None = None
+
+# La page des reglages suit l'ouverture du tunnel en direct, sans rafraichir.
+tunnel.TUNNEL.observer(lambda etat: BROKER.publish("tunnel", etat))
+
+
+def appliquer_acces_distant() -> dict:
+    """Aligne le tunnel sur le reglage courant : demarre, arrete, ou rien.
+
+    Appele au demarrage et apres chaque enregistrement des reglages, pour que
+    l'interrupteur de la page agisse tout de suite.
+    """
+    mode = reglages.tout()["acces_distant"].get("mode")
+    if mode == "auto" and PORTE_PUBLIQUE:
+        return tunnel.TUNNEL.demarrer(PORTE_PUBLIQUE)
+    return tunnel.TUNNEL.arreter()
 
 
 # --- utilitaires reseau --------------------------------------------------------
@@ -362,7 +376,7 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             return "borne"
 
-        if path.startswith("/api/reglages"):
+        if path.startswith("/api/reglages") or path == "/api/tunnel":
             return "reglages"
         if path == "/api/tableau":
             return "tableau"
@@ -489,6 +503,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(tableau.resume(STORE))
             if path == "/api/reglages":
                 return self._json({**reglages.tout(), "geometries": reglages.GEOMETRIES})
+            if path == "/api/tunnel":
+                return self._json(self._etat_distant())
             if path == "/logo-boutique":
                 return self._logo_boutique()
             if path.startswith("/api/paiement/"):
@@ -545,6 +561,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"supprime": code})
             if path == "/api/reglages":
                 valeurs = reglages.reinitialiser()
+                appliquer_acces_distant()
                 BROKER.publish("reglages", {"maj": True})
                 return self._json(valeurs)
             if path == "/api/reglages/logo":
@@ -581,7 +598,6 @@ class Handler(BaseHTTPRequestHandler):
                     "url_reseau": preferred_url(port),
                     "url_client": lien_client(port),
                     "acces_distant": valeurs["acces_distant"],
-                    "porte_publique": PORTE_PUBLIQUE,
                     "poste": postes.etat(self._jeton_poste()),
                 }
             )
@@ -612,6 +628,17 @@ class Handler(BaseHTTPRequestHandler):
         type_mime = mimetypes.guess_type(nom)[0] or "image/png"
         self._send(HTTPStatus.OK, donnees, type_mime)
 
+    def _etat_distant(self) -> dict:
+        """Ce que la page des reglages montre du depot a distance."""
+        etat = dict(tunnel.TUNNEL.etat())
+        etat["mode"] = reglages.tout()["acces_distant"].get("mode", "aucun")
+        etat["porte"] = PORTE_PUBLIQUE
+        # L'adresse reellement encodee dans les prochains QR codes : c'est elle
+        # qui dit si le depot a distance marche pour de bon, pas le reglage.
+        etat["url_qr"] = lien_client(self.server.server_address[1])
+        etat["distant"] = bool(reglages.url_publique())
+        return etat
+
     def _enregistrer_reglages(self) -> None:
         recu = self._read_json()
         if recu is None:
@@ -620,6 +647,7 @@ class Handler(BaseHTTPRequestHandler):
             valeurs = reglages.enregistrer(recu)
         except reglages.ReglageError as exc:
             return self._error(HTTPStatus.BAD_REQUEST, str(exc))
+        appliquer_acces_distant()  # l'interrupteur agit sans redemarrage
         BROKER.publish("reglages", {"maj": True})
         self._json(valeurs)
 
@@ -1045,6 +1073,9 @@ def serve(
     if porte is not None:
         PORTE_PUBLIQUE = porte.server_address[1]
         threading.Thread(target=porte.serve_forever, daemon=True).start()
+        # Le tunnel met quelques secondes a s'ouvrir : on ne fait pas attendre
+        # le demarrage, la page des reglages suivra la progression en direct.
+        threading.Thread(target=appliquer_acces_distant, daemon=True).start()
 
     threading.Thread(target=_purge_loop, daemon=True).start()
 
@@ -1064,17 +1095,19 @@ def serve(
     print("\n  Les autres postes de la boutique s'y connecteront tout seuls.")
 
     if porte is not None:
-        publique = reglages.url_publique()
-        print(
-            f"\n  Porte publique      : http://{config.PUBLIC_HOST}:{porte.server_address[1]}"
-            "   (envoi et reglement seulement)"
-        )
-        print("  C'est la que se branche le tunnel, et nulle part ailleurs.")
-        if publique:
-            print(f"  Adresse des QR code : {publique}")
+        mode = reglages.tout()["acces_distant"].get("mode", "aucun")
+        if mode == "aucun":
+            print("\n  Depot a distance    : desactive.")
+            print("  Les clients doivent etre sur le Wi-Fi de la boutique.")
+            print("  Pour l'ouvrir : Reglages > Depot a distance.")
+        elif mode == "manuel":
+            print(f"\n  Depot a distance    : {reglages.url_publique()}")
+        elif tunnel.chemin_outil() is None:
+            print("\n  Depot a distance    : demande, mais l'outil de connexion")
+            print("  est absent de cette installation (dossier outils/).")
         else:
-            print("  Aucune adresse publique declaree : les QR codes gardent")
-            print("  l'adresse du reseau local (Reglages > Depot a distance).")
+            print("\n  Depot a distance    : ouverture de la connexion en cours...")
+            print("  L'adresse apparaitra dans Reglages > Depot a distance.")
 
     print(f"\n  Depots conserves {config.RETENTION_HOURS} h dans {config.DATA_DIR}")
     print("  Ctrl+C pour arreter.\n")
@@ -1085,6 +1118,7 @@ def serve(
         print("\n  Arret du Symp's Kiosk.")
     finally:
         annonceur.arreter()
+        tunnel.TUNNEL.arreter()
         if porte is not None:
             porte.shutdown()
             porte.server_close()

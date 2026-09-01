@@ -1155,6 +1155,12 @@ body {
   border: 1px solid var(--bleu-100);
 }
 
+.message--ok {
+  background: #eef8f3;
+  color: var(--succes);
+  border: 1px solid #c9e7da;
+}
+
 .section {
   margin-top: clamp(1.75rem, 5vw, 2.75rem);
 }

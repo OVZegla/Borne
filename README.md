@@ -152,46 +152,63 @@ Concrètement, au bout du tunnel :
 - le flux d'événements exige le jeton d'une session : sans lui, l'abonnement
   porterait sur le canal général de la boutique, qui diffuse **tous** les dépôts.
 
-### Mettre en place le tunnel
+### Activer le dépôt à distance
 
-Au démarrage, l'application affiche l'adresse de sa porte publique :
+Dans **Réglages → Dépôt à distance**, trois choix :
+
+| Choix | Ce qui se passe |
+| --- | --- |
+| **Réseau local seulement** | le QR code porte l'adresse du réseau local. Rien ne sort de la boutique. C'est le réglage par défaut. |
+| **Activé** | l'application ouvre elle-même la connexion et relève l'adresse. Rien à installer, rien à saisir, aucune commande. |
+| **Ma propre adresse** | la boutique a son domaine et le fait pointer sur cette machine. Réservé à une installation suivie. |
+
+Sur « Activé », la page affiche l'état en direct — *Ouverture de la connexion…*
+puis *Connexion ouverte* — sans avoir à recharger. L'adresse n'est jamais montrée
+au gérant : elle change à chaque ouverture, et comme le QR code est fabriqué à
+chaque dépôt, cela n'a aucune importance.
+
+Tant que la connexion n'est pas ouverte, **le QR code reste celui du réseau
+local** : jamais de QR mort le temps que le tunnel monte.
+
+### L'outil de connexion
+
+Le mode « Activé » s'appuie sur `cloudflared`, qui doit être **livré avec
+l'installation**, dans un dossier `outils/` à côté de l'application :
 
 ```
-  Porte publique      : http://127.0.0.1:8081   (envoi et reglement seulement)
+Symp's Kiosk/
+├── symps.py
+├── kiosk/
+└── outils/
+    └── cloudflared.exe      (cloudflared tout court sur macOS et Linux)
 ```
 
-Avec [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
-(gratuit, rien à ouvrir sur la box) :
+À défaut, l'application le cherche dans le `PATH` et aux emplacements
+d'installation habituels. S'il est introuvable, le mode « Activé » le dit
+clairement dans les réglages au lieu d'échouer en silence — mais il n'y a alors
+aucun dépôt à distance possible.
 
-```bash
-cloudflared tunnel --url http://127.0.0.1:8081
-```
+Le binaire se récupère sur
+[la page de téléchargement de Cloudflare](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
+Il n'ouvre aucun port sur la box : c'est lui qui sort vers Cloudflare, et le
+trafic revient par cette connexion déjà établie.
 
-La commande affiche une adresse en `https://…` : reportez-la dans
-**Réglages → Dépôt à distance**, cochez la case, enregistrez. Les QR codes
-suivants la portent. Pour une boutique installée, préférez un *tunnel nommé*, qui
-garde la même adresse d'un redémarrage à l'autre. `ngrok` et Tailscale Funnel
-font la même chose.
-
-Le `https` n'est pas décoratif : hors contexte sécurisé, les navigateurs mobiles
-refusent l'accès à l'appareil photo. Une adresse en `http://` est donc refusée à
-la saisie.
+L'application le surveille : s'il s'arrête, elle le relance, jusqu'à cinq fois
+avant d'abandonner et de le signaler dans les réglages.
 
 > **À savoir** : cette adresse est publique, et le seul secret qui protège un
 > dépôt est le jeton contenu dans le QR code — 128 bits tirés au hasard, un par
 > session, effacé avec le dépôt. Personne ne devine celui d'un autre client, mais
 > quiconque reçoit le lien peut ajouter des photos à ce dépôt tant qu'il n'est pas
-> validé. Le débit d'envoi n'est pas limité par l'application : si votre tunnel
-> sait le faire, un plafond de requêtes n'est pas du luxe.
+> validé. Le débit d'envoi n'est pas limité par l'application.
 
-Sans adresse déclarée, rien ne change : les QR codes gardent l'adresse du réseau
-local. Pour ne pas ouvrir la porte publique du tout, lancez avec
+Le tunnel actuel est un *tunnel rapide* : sans compte, avec une adresse tirée au
+hasard. Le jour où l'abonnement en ligne sera en service, la licence signée
+portera un **sous-domaine stable** et son jeton ; `tunnel.demarrer()` les accepte
+déjà, il ne manque que le serveur qui les émet.
+
+Pour ne pas ouvrir la porte publique du tout, lancez avec
 `SYMPS_PUBLIC_PORT=off`.
-
-Une fois l'adresse cochée, **tous** les QR codes la portent, y compris pour un
-client debout devant la borne. Si le tunnel tombe, plus personne ne dépose — même
-sur votre Wi-Fi. Décochez la case pour revenir au réseau local le temps de le
-relancer.
 
 ## Démarrer sur Windows
 
@@ -625,6 +642,7 @@ kiosk/
   storage.py           dépôts, articles, paiement, expiration
   imagemeta.py         dimensions lues dans les en-têtes (sans Pillow)
   qr.py                générateur de QR code autonome
+  tunnel.py            ouverture et surveillance du tunnel vers Internet
   licence.py           abonnement : activation, licence signée, hors ligne
   postes.py            rôle de chaque appareil (borne, imprimante, PC) et droits
   tableau.py           chiffres du tableau de bord
@@ -672,6 +690,7 @@ figurent seulement `/api/config`, `/api/catalogue`, `/assets/theme.css`,
 | `GET` | `/api/sessions/<jeton>/code` | borne | le code, si le règlement est encaissé (sinon `402`) |
 | `GET` | `/api/catalogue` | — | supports, formats, coupes et grille de prix |
 | `GET` `POST` `DELETE` | `/api/reglages` | imprimante, PC | réglages de la boutique |
+| `GET` | `/api/tunnel` | imprimante, PC | état du dépôt à distance (outil, connexion, adresse) |
 | `POST` `DELETE` | `/api/reglages/logo` | imprimante, PC | logo de la boutique |
 | `GET` | `/assets/theme.css` | — | couleurs de la boutique, feuille générée |
 | `GET` | `/api/paiement/<jeton>` | — | récapitulatif de la commande et son statut |

@@ -375,31 +375,70 @@
       <!-- Depot depuis n'importe quel reseau -->
       <section class="carte section">
         <div class="section__titre"><h2>Dépôt à distance</h2></div>
-        <p class="choix__note" style="margin-bottom: 1rem">
-          Par défaut, le QR code de la borne contient son adresse sur votre
-          réseau&nbsp;: un téléphone qui n'est pas sur votre Wi-Fi ne peut pas
-          déposer. En ouvrant un tunnel vers cette machine, vous obtenez une
-          adresse publique en https et le dépôt fonctionne depuis n'importe
-          quel réseau, sans donner votre Wi-Fi aux clients.
+        <p class="choix__note" style="margin-bottom: 1.25rem">
+          Par défaut, le QR code de la borne contient l'adresse de votre machine
+          sur votre réseau&nbsp;: un téléphone qui n'est pas sur votre Wi-Fi ne
+          peut pas déposer. Le dépôt à distance lève cette limite, sans donner
+          votre Wi-Fi aux clients.
         </p>
 
-        <label class="bascule">
-          <input type="checkbox" id="acces-distant-actif">
-          <span>Mettre l'adresse publique dans les QR codes</span>
-        </label>
+        <div class="modes" style="margin-bottom: 1.25rem">
+          <label class="mode">
+            <input type="radio" name="acces-distant" value="aucun" id="distant-aucun">
+            <span class="mode__corps">
+              <span class="mode__titre">Réseau local seulement</span>
+              <span class="mode__texte">
+                Le client doit être connecté au <strong>Wi-Fi de la
+                boutique</strong> pour envoyer ses photos. Rien ne sort de vos
+                murs.
+              </span>
+            </span>
+          </label>
 
-        <label class="champ" style="margin-top: 1rem">
-          <span class="champ__libelle">Adresse publique du tunnel</span>
-          <input type="url" id="acces-distant-url" placeholder="https://depot.votreboutique.fr">
-        </label>
+          <label class="mode">
+            <input type="radio" name="acces-distant" value="auto" id="distant-auto">
+            <span class="mode__corps">
+              <span class="mode__titre">Activé</span>
+              <span class="mode__texte">
+                Les clients déposent <strong>depuis n'importe quel réseau</strong>,
+                y compris en 4G. L'application ouvre la connexion toute seule&nbsp;:
+                rien à installer, rien à saisir, aucun port à ouvrir sur votre box.
+              </span>
+            </span>
+          </label>
 
-        <p class="choix__note" id="aide-tunnel"></p>
+          <label class="mode">
+            <input type="radio" name="acces-distant" value="manuel" id="distant-manuel">
+            <span class="mode__corps">
+              <span class="mode__titre">Ma propre adresse</span>
+              <span class="mode__texte">
+                Vous avez déjà un nom de domaine et savez le faire pointer sur
+                cette machine. À réserver à une installation suivie par un
+                informaticien.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div id="bloc-distant-manuel" class="cache">
+          <label class="champ">
+            <span class="champ__libelle">Adresse publique (https)</span>
+            <input type="url" id="acces-distant-url" placeholder="https://depot.votreboutique.fr">
+          </label>
+          <p class="choix__note">
+            Elle doit mener à cette machine et s'arrêter au nom de domaine. Le
+            <code>https</code> n'est pas décoratif&nbsp;: sans lui, les
+            téléphones refusent l'accès à l'appareil photo.
+          </p>
+        </div>
+
+        <div class="message" id="etat-distant">Vérification…</div>
 
         <p class="message message--info">
-          Cette adresse ne donne accès <strong>qu'à l'envoi des photos et au
+          L'adresse publique ne donne accès <strong>qu'à l'envoi des photos et au
           règlement</strong>. La réception, l'impression, le tableau de bord et
           ces réglages ne sont servis que sur votre réseau local&nbsp;: ils
-          n'existent pas au bout du tunnel, quelle que soit l'adresse demandée.
+          n'existent pas au bout de cette adresse, quelle qu'elle soit.
         </p>
       </section>
 

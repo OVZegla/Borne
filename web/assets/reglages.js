@@ -1,6 +1,6 @@
 /* Page d'administration : marque, catalogue, tarifs, encaissement. */
 
-import { $, api, config, element } from './commun.js';
+import { $, api, ecouterEvenements, element } from './commun.js';
 import { brancherChangementDePoste, poserNavigation } from './navigation.js';
 import { creerRoue } from './roue.js';
 
@@ -54,10 +54,14 @@ function remplir(recu) {
   $('#libelle-paiement').value = recu.paiement.libelle || '';
   majBlocLien();
 
-  const distant = recu.acces_distant || { actif: false, url: '' };
-  $('#acces-distant-actif').checked = Boolean(distant.actif);
+  const distant = recu.acces_distant || { mode: 'aucun', url: '' };
+  const modeDistantRecu = ['aucun', 'auto', 'manuel'].includes(distant.mode)
+    ? distant.mode
+    : 'aucun';
+  $(`#distant-${modeDistantRecu}`).checked = true;
   $('#acces-distant-url').value = distant.url || '';
-  majAideTunnel();
+  majBlocDistant();
+  rafraichirEtatDistant();
 
   dessinerMatieres();
   dessinerFormats();
@@ -664,34 +668,68 @@ function majOrdre() {
 
 /* --- dépôt à distance ------------------------------------------------------- */
 
-/**
- * La commande à lancer dépend du port de la porte publique, que le serveur
- * choisit au démarrage : on l'affiche plutôt que de la faire deviner.
- */
-async function majAideTunnel() {
-  const aide = $('#aide-tunnel');
-  let porte = null;
-  try {
-    porte = (await config()).porte_publique;
-  } catch (echec) {
-    porte = null;
-  }
-
-  if (!porte) {
-    aide.textContent =
-      "La porte publique est fermée sur cette machine : aucun tunnel ne peut " +
-      "s'y brancher, et le dépôt reste réservé à votre réseau local.";
-    return;
-  }
-
-  aide.replaceChildren(
-    'Branchez votre tunnel sur ',
-    element('code', {}, `http://127.0.0.1:${porte}`),
-    ' — et sur rien d\'autre. Par exemple : ',
-    element('code', {}, `cloudflared tunnel --url http://127.0.0.1:${porte}`),
-    ". Reportez ensuite ici l'adresse en https qu'il vous donne.",
-  );
+for (const id of ['#distant-aucun', '#distant-auto', '#distant-manuel']) {
+  $(id).addEventListener('change', majBlocDistant);
 }
+
+function modeDistant() {
+  return $('#distant-manuel').checked ? 'manuel' : $('#distant-auto').checked ? 'auto' : 'aucun';
+}
+
+function majBlocDistant() {
+  $('#bloc-distant-manuel').classList.toggle('cache', modeDistant() !== 'manuel');
+}
+
+/**
+ * L'ouverture d'un tunnel prend quelques secondes et peut échouer : le gérant
+ * doit voir où ça en est sans avoir à recharger, ni à lire un journal.
+ */
+function afficherEtatDistant(etat) {
+  const boite = $('#etat-distant');
+  if (!boite || !etat) return;
+
+  const enregistre = etat.mode || 'aucun';
+  let ton = 'message--info';
+  let texte = '';
+
+  if (enregistre === 'aucun') {
+    texte = "Dépôt à distance désactivé : le QR code porte l'adresse de votre réseau local.";
+  } else if (enregistre === 'manuel') {
+    texte = etat.distant
+      ? `Les QR codes portent votre adresse : ${etat.url_qr}`
+      : "Adresse absente : le QR code retombe sur votre réseau local.";
+    ton = etat.distant ? 'message--ok' : 'message--erreur';
+  } else if (etat.etape === 'actif') {
+    texte = 'Connexion ouverte. Les clients peuvent déposer depuis n\'importe quel réseau.';
+    ton = 'message--ok';
+  } else if (etat.etape === 'demarrage') {
+    texte = "Ouverture de la connexion… En attendant, le QR code reste celui du réseau local.";
+  } else if (etat.etape === 'outil_absent') {
+    texte =
+      "L'outil de connexion est absent de cette installation. Le dépôt à distance " +
+      'ne peut pas s\'ouvrir ; contactez votre installateur.';
+    ton = 'message--erreur';
+  } else if (etat.etape === 'erreur') {
+    texte = `La connexion n'a pas pu s'ouvrir. ${etat.detail || ''}`.trim();
+    ton = 'message--erreur';
+  } else {
+    texte = 'Connexion fermée.';
+  }
+
+  boite.className = `message ${ton}`;
+  boite.textContent = texte;
+}
+
+async function rafraichirEtatDistant() {
+  try {
+    afficherEtatDistant(await api('/api/tunnel'));
+  } catch (echec) {
+    /* la page reste utilisable même si l'état n'est pas lisible */
+  }
+}
+
+// Le serveur pousse chaque changement : ouverture, échec, fermeture.
+ecouterEvenements({ tunnel: () => rafraichirEtatDistant() });
 
 /* --- enregistrement --------------------------------------------------------- */
 
@@ -726,7 +764,7 @@ $('#btn-enregistrer').addEventListener('click', async () => {
       libelle: $('#libelle-paiement').value,
     },
     acces_distant: {
-      actif: $('#acces-distant-actif').checked,
+      mode: modeDistant(),
       url: $('#acces-distant-url').value,
     },
   };

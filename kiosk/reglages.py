@@ -14,7 +14,7 @@ import threading
 import unicodedata
 from urllib.parse import urlparse
 
-from . import config
+from . import config, tunnel
 
 # Geometries que la borne sait dessiner. Une coupe creee par la boutique porte
 # son propre nom et son propre prix, mais s'appuie sur l'une d'elles.
@@ -98,10 +98,13 @@ DEFAUTS = {
         "lien": "",
         "libelle": "",
     },
-    # Depot depuis n'importe quel reseau : l'adresse publique du tunnel de la
-    # boutique. Vide ou inactif, le QR code garde l'adresse du reseau local et
-    # le depot reste reserve aux telephones poses sur le Wi-Fi de la boutique.
-    "acces_distant": {"actif": False, "url": ""},
+    # Depot depuis n'importe quel reseau.
+    #   « aucun »  : le QR garde l'adresse du reseau local (defaut) ;
+    #   « auto »   : l'application ouvre le tunnel elle-meme, rien a saisir ;
+    #   « manuel » : la boutique fournit sa propre adresse publique.
+    # L'adresse saisie est conservee meme en mode « auto », pour ne pas la
+    # perdre en essayant l'autre mode.
+    "acces_distant": {"mode": "aucun", "url": ""},
 }
 
 _verrou = threading.RLock()
@@ -376,48 +379,65 @@ def _valider_paiement(recu: dict) -> dict:
     }
 
 
+MODES_DISTANT = ("aucun", "auto", "manuel")
+
+
 def _valider_acces_distant(recu: dict) -> dict:
-    """L'adresse publique du tunnel : une origine https, et rien de plus.
+    """Mode de depot a distance, et l'adresse quand la boutique fournit la sienne.
 
-    Le serveur ne sait servir que depuis la racine, et l'adresse part telle
-    quelle dans un QR code : un chemin, une requete ou un fragment y seraient
-    silencieusement perdus. On les refuse plutot que de livrer un QR mort.
+    L'adresse doit etre une origine https et rien de plus : le serveur ne sait
+    servir que depuis la racine, et elle part telle quelle dans un QR code. Un
+    chemin ou un parametre y seraient silencieusement perdus, donnant un QR
+    mort ; autant les refuser a la saisie.
     """
-    url = str(recu.get("url") or "").strip().rstrip("/")
-    actif = bool(recu.get("actif"))
-    if not url:
-        return {"actif": False, "url": ""}
-    if len(url) > 200:
-        raise ReglageError("Adresse de dépôt à distance trop longue")
+    mode = str(recu.get("mode") or "aucun")
+    if mode not in MODES_DISTANT:
+        raise ReglageError("Mode de dépôt à distance inconnu")
 
-    decoupe = urlparse(url)
-    if decoupe.scheme != "https":
-        raise ReglageError(
-            "L'adresse de dépôt à distance doit commencer par https:// — "
-            "un appareil photo de téléphone est refusé sur une page non sécurisée"
-        )
-    if not decoupe.hostname:
-        raise ReglageError("Adresse de dépôt à distance incomplète")
-    if decoupe.path or decoupe.query or decoupe.fragment:
-        raise ReglageError(
-            "L'adresse de dépôt à distance doit s'arrêter au nom de domaine, "
-            "sans chemin ni paramètre"
-        )
-    return {"actif": actif, "url": url}
+    url = str(recu.get("url") or "").strip().rstrip("/")
+    if url:
+        if len(url) > 200:
+            raise ReglageError("Adresse de dépôt à distance trop longue")
+        decoupe = urlparse(url)
+        if decoupe.scheme != "https":
+            raise ReglageError(
+                "L'adresse de dépôt à distance doit commencer par https:// — "
+                "un appareil photo de téléphone est refusé sur une page non sécurisée"
+            )
+        if not decoupe.hostname:
+            raise ReglageError("Adresse de dépôt à distance incomplète")
+        if decoupe.path or decoupe.query or decoupe.fragment:
+            raise ReglageError(
+                "L'adresse de dépôt à distance doit s'arrêter au nom de domaine, "
+                "sans chemin ni paramètre"
+            )
+    elif mode == "manuel":
+        raise ReglageError("Indiquez votre adresse, ou laissez l'application ouvrir la connexion")
+
+    return {"mode": mode, "url": url}
 
 
 def url_publique() -> str:
-    """Adresse a mettre dans les QR codes, ou une chaine vide si le depot a
-    distance n'est pas ouvert.
+    """Adresse a mettre dans les QR codes, vide si le depot a distance est ferme.
 
-    La variable d'environnement l'emporte : elle sert aux installations pilotees
-    par un script, ou le fichier de reglages n'est pas edite a la main.
+    En mode « auto » elle vient du tunnel, et n'existe donc qu'une fois celui-ci
+    ouvert. Tant qu'il ne l'est pas, on renvoie vide : le QR retombe sur
+    l'adresse du reseau local, ce qui vaut mieux qu'un QR qui ne mene nulle part.
+
+    La variable d'environnement l'emporte sur tout : elle sert aux installations
+    pilotees par un script, ou le fichier de reglages n'est pas edite a la main.
     """
     impose = config.PUBLIC_URL
     if impose:
         return impose.rstrip("/")
+
     distant = tout()["acces_distant"]
-    return distant["url"] if distant.get("actif") and distant.get("url") else ""
+    mode = distant.get("mode")
+    if mode == "manuel":
+        return distant.get("url") or ""
+    if mode == "auto":
+        return tunnel.TUNNEL.url()
+    return ""
 
 
 def enregistrer(recu: dict) -> dict:
