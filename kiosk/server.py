@@ -59,6 +59,10 @@ class Broker:
 
 BROKER = Broker()
 
+# Port de la porte publique une fois ouverte, ou None. La page des reglages en
+# a besoin pour afficher a la boutique la commande de tunnel a lancer.
+PORTE_PUBLIQUE: int | None = None
+
 
 # --- utilitaires reseau --------------------------------------------------------
 
@@ -96,6 +100,23 @@ def preferred_url(port: int) -> str:
     addresses = local_addresses()
     host = addresses[0] if addresses else "localhost"
     return f"http://{host}:{port}"
+
+
+def lien_client(port: int) -> str:
+    """Adresse a encoder dans les QR codes tendus au telephone du client.
+
+    Celle du tunnel quand la boutique a declare une adresse publique, sinon
+    celle du reseau local — qui n'est joignable que depuis le Wi-Fi du magasin.
+    """
+    return reglages.url_publique() or preferred_url(port)
+
+
+def _jeton_de(path: str, prefixe: str) -> str | None:
+    """Jeton d'une route `<prefixe><jeton>`, sans suffixe ni sous-chemin."""
+    if not path.startswith(prefixe):
+        return None
+    reste = path[len(prefixe):]
+    return reste if reste and "/" not in reste else None
 
 
 def _melanger(couleur: str, vers: int, part: float) -> str:
@@ -205,6 +226,9 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "SympsKiosk"
     sys_version = ""
 
+    # Vrai sur la porte ou se branche le tunnel. Voir PublicHandler, en bas.
+    PUBLIC = False
+
     # --- reponses ---------------------------------------------------------
 
     def _send(
@@ -218,6 +242,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        # Les jetons de depot et de reglement voyagent dans l'URL : aucun
+        # referent ne doit partir avec, en particulier vers la page de paiement
+        # externe de la boutique, qui reçoit sinon le jeton de la commande.
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
         for key, value in (headers or {}).items():
             self.send_header(key, value)
         self.end_headers()
@@ -348,10 +377,62 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return None if postes.a_le_droit(self._jeton_poste(), droit) else droit
 
+    # --- surface exposee au bout du tunnel --------------------------------
+
+    # Ce que le telephone d'un client atteint depuis Internet, et rien d'autre.
+    # C'est une liste blanche, et c'est le point : une route ajoutee au serveur
+    # n'apparait ici que si on l'y met. L'oubli ferme la porte, il ne l'ouvre
+    # pas — l'inverse aurait mis la reception en ligne au premier ajout.
+    SURFACE_PUBLIQUE = {
+        "/envoyer",         # page d'envoi des photos
+        "/paiement",        # page de reglement
+        "/e",               # lien court du QR code de depot
+        "/p",               # lien court du QR code de paiement
+        "/api/config",      # marque, limites de taille, types acceptes
+        "/api/catalogue",   # libelles des tirages, pour le recapitulatif
+        "/logo-boutique",
+        "/assets/theme.css",
+    }
+
+    def _dans_la_surface_publique(self, method: str, path: str, query: dict) -> bool:
+        if method == "GET":
+            if path in self.SURFACE_PUBLIQUE or path.startswith("/assets/"):
+                return True
+            # Suivi en direct d'une commande. Le jeton est obligatoire : sans
+            # lui l'abonnement porte sur le canal general de la boutique, qui
+            # diffuse chaque depot valide — ceux des autres clients compris.
+            if path == "/api/evenements":
+                return bool((query.get("session") or [""])[0])
+            if _jeton_de(path, "/api/paiement/") is not None:
+                return True
+            # Consulter sa session, mais pas /code : le code de retrait se
+            # revele sur la borne, pas sur le telephone.
+            return _jeton_de(path, "/api/sessions/") is not None
+
+        if method == "POST":
+            # Deposer une photo, et c'est tout : ni ouverture de session, ni
+            # validation, ni choix du tirage. Cela se fait devant la borne.
+            reste = path[len("/api/sessions/"):] if path.startswith("/api/sessions/") else ""
+            jeton, _, fin = reste.partition("/")
+            return bool(jeton) and fin == "images"
+
+        return False
+
     def _dispatch(self, method: str, path: str, query: dict) -> None:
         pages = {chemin: fichier for chemin, (fichier, _) in self.PAGES.items()}
 
+        if self.PUBLIC and not self._dans_la_surface_publique(method, path, query):
+            # 404 plutot que 403 : depuis Internet, rien ne doit laisser
+            # deviner qu'il existe une reception, un tableau de bord et des
+            # reglages derriere cette adresse.
+            return self._error(HTTPStatus.NOT_FOUND, "Ressource introuvable")
+
         if self._abonnement_bloque(path):
+            if self.PUBLIC:
+                # Un client n'a rien a savoir de l'abonnement de la boutique.
+                return self._error(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "Dépôt momentanément indisponible"
+                )
             if path in pages or path == "/":
                 return self._redirect("/connexion")
             return self._error(HTTPStatus.PAYMENT_REQUIRED, "Abonnement requis")
@@ -478,23 +559,33 @@ class Handler(BaseHTTPRequestHandler):
 
     def _config(self) -> None:
         port = self.server.server_address[1]
-        self._json(
-            {
-                "marque": config.BRAND_NAME,
-                "version": config.VERSION,
-                "boutique": reglages.tout()["boutique"],
-                "theme": reglages.tout()["theme"],
-                "couleur": config.BRAND_COLOR,
-                "urls": base_urls(port),
-                "url_reseau": preferred_url(port),
-                "retention_heures": config.RETENTION_HOURS,
-                "taille_max_mo": config.MAX_FILE_BYTES // (1024 * 1024),
-                "fichiers_max": config.MAX_FILES_PER_TICKET,
-                "types_autorises": sorted(config.ALLOWED_TYPES),
-                "paiement": {"ordre": reglages.tout()["paiement"].get("ordre", "apres")},
-                "poste": postes.etat(self._jeton_poste()),
-            }
-        )
+        valeurs = reglages.tout()
+        payload = {
+            "marque": config.BRAND_NAME,
+            "version": config.VERSION,
+            "boutique": valeurs["boutique"],
+            "theme": valeurs["theme"],
+            "couleur": config.BRAND_COLOR,
+            "retention_heures": config.RETENTION_HOURS,
+            "taille_max_mo": config.MAX_FILE_BYTES // (1024 * 1024),
+            "fichiers_max": config.MAX_FILES_PER_TICKET,
+            "types_autorises": sorted(config.ALLOWED_TYPES),
+            "paiement": {"ordre": valeurs["paiement"].get("ordre", "apres")},
+        }
+        if not self.PUBLIC:
+            # Adresses internes de la boutique et role de l'appareil : cela
+            # regarde les postes du magasin, pas un telephone venu d'Internet.
+            payload.update(
+                {
+                    "urls": base_urls(port),
+                    "url_reseau": preferred_url(port),
+                    "url_client": lien_client(port),
+                    "acces_distant": valeurs["acces_distant"],
+                    "porte_publique": PORTE_PUBLIQUE,
+                    "poste": postes.etat(self._jeton_poste()),
+                }
+            )
+        self._json(payload)
 
     # --- personnalisation de la boutique ----------------------------------
 
@@ -608,7 +699,7 @@ class Handler(BaseHTTPRequestHandler):
         ticket = STORE.create_ticket()
         port = self.server.server_address[1]
         payload = ticket.session()
-        payload["url_envoi"] = f"{preferred_url(port)}/e?s={ticket.token}"
+        payload["url_envoi"] = f"{lien_client(port)}/e?s={ticket.token}"
         self._json(payload, HTTPStatus.CREATED)
 
     @staticmethod
@@ -664,7 +755,7 @@ class Handler(BaseHTTPRequestHandler):
         ticket = STORE.validate(token)
         port = self.server.server_address[1]
         payload = ticket.session(self._code_visible(ticket))
-        payload["url_paiement"] = f"{preferred_url(port)}/p?j={ticket.payment_token}"
+        payload["url_paiement"] = f"{lien_client(port)}/p?j={ticket.payment_token}"
         BROKER.publish("depot", ticket.public())  # le poste de reception rafraichit sa liste
         BROKER.publish("validation", payload, canal=token)
         self._json(payload)
@@ -878,6 +969,25 @@ class Handler(BaseHTTPRequestHandler):
         self._send(HTTPStatus.OK, data, guessed)
 
 
+class PublicHandler(Handler):
+    """Le serveur tel qu'il apparait au bout du tunnel.
+
+    Meme code, deux portes : celle du reseau local sert tout, celle-ci ne sert
+    que le telephone d'un client. La separation tient au **socket d'arrivee**,
+    pas a un en-tete : `Host` et `X-Forwarded-For` se falsifient depuis
+    n'importe ou, un port d'ecoute non. Il n'existe donc aucune requete, meme
+    forgee, qui atteigne la reception ou les reglages par ce chemin.
+    """
+
+    PUBLIC = True
+
+    def _jeton_poste(self) -> str | None:
+        # Aucun role de ce cote. La route qui en attribue un n'est pas servie
+        # ici, et un cookie recopie a la main ne donne rien de plus que ce que
+        # la surface publique sert deja.
+        return None
+
+
 # --- demarrage -----------------------------------------------------------------
 
 
@@ -891,15 +1001,33 @@ def _purge_loop() -> None:
             pass
 
 
-def build_server(host: str, port: int, attempts: int = 20) -> KioskServer:
+def build_server(host: str, port: int, attempts: int = 20, handler=Handler) -> KioskServer:
     """Ouvre le serveur, en glissant sur le port suivant s'il est deja pris."""
     last: OSError | None = None
     for offset in range(attempts):
         try:
-            return KioskServer((host, port + offset), Handler)
+            return KioskServer((host, port + offset), handler)
         except OSError as exc:
             last = exc
     raise SystemExit(f"Aucun port libre entre {port} et {port + attempts - 1} ({last})")
+
+
+def ouvrir_porte_publique(port_principal: int) -> KioskServer | None:
+    """Seconde porte, sur la boucle locale, ou vient se brancher le tunnel.
+
+    Elle ne glisse pas de port en port comme la premiere : le tunnel est
+    configure une fois pour toutes sur une adresse fixe, et un repli silencieux
+    le laisserait pointer dans le vide sans que personne s'en apercoive.
+    """
+    port = config.port_public(port_principal)
+    if not port:
+        return None
+    try:
+        return KioskServer((config.PUBLIC_HOST, port), PublicHandler)
+    except OSError as exc:
+        print(f"\n  Porte publique non ouverte sur le port {port} : {exc}")
+        print("  Le depot a distance restera indisponible.\n")
+        return None
 
 
 def serve(
@@ -908,8 +1036,15 @@ def serve(
     open_browser: bool = False,
     atelier: str | None = None,
 ) -> None:
+    global PORTE_PUBLIQUE
+
     server = build_server(host or config.HOST, port or config.PORT)
     actual_port = server.server_address[1]
+
+    porte = ouvrir_porte_publique(actual_port)
+    if porte is not None:
+        PORTE_PUBLIQUE = porte.server_address[1]
+        threading.Thread(target=porte.serve_forever, daemon=True).start()
 
     threading.Thread(target=_purge_loop, daemon=True).start()
 
@@ -927,6 +1062,20 @@ def serve(
     for address in local_addresses():
         print(f"  Depuis un autre app.: http://{address}:{actual_port}")
     print("\n  Les autres postes de la boutique s'y connecteront tout seuls.")
+
+    if porte is not None:
+        publique = reglages.url_publique()
+        print(
+            f"\n  Porte publique      : http://{config.PUBLIC_HOST}:{porte.server_address[1]}"
+            "   (envoi et reglement seulement)"
+        )
+        print("  C'est la que se branche le tunnel, et nulle part ailleurs.")
+        if publique:
+            print(f"  Adresse des QR code : {publique}")
+        else:
+            print("  Aucune adresse publique declaree : les QR codes gardent")
+            print("  l'adresse du reseau local (Reglages > Depot a distance).")
+
     print(f"\n  Depots conserves {config.RETENTION_HOURS} h dans {config.DATA_DIR}")
     print("  Ctrl+C pour arreter.\n")
 
@@ -936,5 +1085,8 @@ def serve(
         print("\n  Arret du Symp's Kiosk.")
     finally:
         annonceur.arreter()
+        if porte is not None:
+            porte.shutdown()
+            porte.server_close()
         server.shutdown()
         server.server_close()

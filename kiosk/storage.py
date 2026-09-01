@@ -291,14 +291,20 @@ class Store:
     # --- ecriture ------------------------------------------------------
 
     def create_ticket(self) -> Ticket:
-        """Ouvre une session : le jeton part dans le QR, le code reste cache."""
+        """Ouvre une session : le jeton part dans le QR, le code reste cache.
+
+        Les deux jetons font 16 octets, soit 128 bits. Sur le seul reseau local
+        la moitie aurait suffi ; ouverts sur Internet par le tunnel, ils sont
+        le seul secret qui protege les photos d'un client et le detail de sa
+        commande, et se retrouvent exposes a un devinage sans limite de debit.
+        """
         with self._lock:
             self.purge()
             now = time.time()
             ticket = Ticket(
                 code=self._new_code(),
-                token=secrets.token_urlsafe(9),
-                payment_token=secrets.token_urlsafe(9),
+                token=secrets.token_urlsafe(16),
+                payment_token=secrets.token_urlsafe(16),
                 created_at=now,
                 expires_at=now + config.RETENTION_HOURS * 3600,
             )

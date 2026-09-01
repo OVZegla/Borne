@@ -12,6 +12,7 @@ import json
 import re
 import threading
 import unicodedata
+from urllib.parse import urlparse
 
 from . import config
 
@@ -97,6 +98,10 @@ DEFAUTS = {
         "lien": "",
         "libelle": "",
     },
+    # Depot depuis n'importe quel reseau : l'adresse publique du tunnel de la
+    # boutique. Vide ou inactif, le QR code garde l'adresse du reseau local et
+    # le depot reste reserve aux telephones poses sur le Wi-Fi de la boutique.
+    "acces_distant": {"actif": False, "url": ""},
 }
 
 _verrou = threading.RLock()
@@ -371,6 +376,50 @@ def _valider_paiement(recu: dict) -> dict:
     }
 
 
+def _valider_acces_distant(recu: dict) -> dict:
+    """L'adresse publique du tunnel : une origine https, et rien de plus.
+
+    Le serveur ne sait servir que depuis la racine, et l'adresse part telle
+    quelle dans un QR code : un chemin, une requete ou un fragment y seraient
+    silencieusement perdus. On les refuse plutot que de livrer un QR mort.
+    """
+    url = str(recu.get("url") or "").strip().rstrip("/")
+    actif = bool(recu.get("actif"))
+    if not url:
+        return {"actif": False, "url": ""}
+    if len(url) > 200:
+        raise ReglageError("Adresse de dépôt à distance trop longue")
+
+    decoupe = urlparse(url)
+    if decoupe.scheme != "https":
+        raise ReglageError(
+            "L'adresse de dépôt à distance doit commencer par https:// — "
+            "un appareil photo de téléphone est refusé sur une page non sécurisée"
+        )
+    if not decoupe.hostname:
+        raise ReglageError("Adresse de dépôt à distance incomplète")
+    if decoupe.path or decoupe.query or decoupe.fragment:
+        raise ReglageError(
+            "L'adresse de dépôt à distance doit s'arrêter au nom de domaine, "
+            "sans chemin ni paramètre"
+        )
+    return {"actif": actif, "url": url}
+
+
+def url_publique() -> str:
+    """Adresse a mettre dans les QR codes, ou une chaine vide si le depot a
+    distance n'est pas ouvert.
+
+    La variable d'environnement l'emporte : elle sert aux installations pilotees
+    par un script, ou le fichier de reglages n'est pas edite a la main.
+    """
+    impose = config.PUBLIC_URL
+    if impose:
+        return impose.rstrip("/")
+    distant = tout()["acces_distant"]
+    return distant["url"] if distant.get("actif") and distant.get("url") else ""
+
+
 def enregistrer(recu: dict) -> dict:
     """Valide puis ecrit les reglages envoyes par la page d'administration."""
     if not isinstance(recu, dict):
@@ -387,6 +436,7 @@ def enregistrer(recu: dict) -> dict:
         "theme": _valider_theme(recu.get("theme") or {}),
         "catalogue": _valider_catalogue(recu.get("catalogue") or {}),
         "paiement": _valider_paiement(recu.get("paiement") or {}),
+        "acces_distant": _valider_acces_distant(recu.get("acces_distant") or {}),
     }
     return _ecrire(valeurs)
 

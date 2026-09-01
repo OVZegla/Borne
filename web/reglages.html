@@ -372,6 +372,37 @@
         </div>
       </section>
 
+      <!-- Depot depuis n'importe quel reseau -->
+      <section class="carte section">
+        <div class="section__titre"><h2>Dépôt à distance</h2></div>
+        <p class="choix__note" style="margin-bottom: 1rem">
+          Par défaut, le QR code de la borne contient son adresse sur votre
+          réseau&nbsp;: un téléphone qui n'est pas sur votre Wi-Fi ne peut pas
+          déposer. En ouvrant un tunnel vers cette machine, vous obtenez une
+          adresse publique en https et le dépôt fonctionne depuis n'importe
+          quel réseau, sans donner votre Wi-Fi aux clients.
+        </p>
+
+        <label class="bascule">
+          <input type="checkbox" id="acces-distant-actif">
+          <span>Mettre l'adresse publique dans les QR codes</span>
+        </label>
+
+        <label class="champ" style="margin-top: 1rem">
+          <span class="champ__libelle">Adresse publique du tunnel</span>
+          <input type="url" id="acces-distant-url" placeholder="https://depot.votreboutique.fr">
+        </label>
+
+        <p class="choix__note" id="aide-tunnel"></p>
+
+        <p class="message message--info">
+          Cette adresse ne donne accès <strong>qu'à l'envoi des photos et au
+          règlement</strong>. La réception, l'impression, le tableau de bord et
+          ces réglages ne sont servis que sur votre réseau local&nbsp;: ils
+          n'existent pas au bout du tunnel, quelle que soit l'adresse demandée.
+        </p>
+      </section>
+
       <div class="barre-enregistrement">
         <span class="barre-enregistrement__etat" id="etat-enregistrement"></span>
         <div class="actions">
